@@ -14,6 +14,8 @@ Adopted, with modifications, from an external Grok 4.5 review of the fork.
 - Advisor consults must include pasted decisive evidence (failing output, traces), not just file paths.
 - Parallelism rule: one writer per module/package; schema and migration work is always serial.
 - README: producer permissions table. Doctor: prints fork identity + version banner.
+- Grok is the unconfigured default implementation lane (flipped from codex before release; fallback chain grok → codex → Opus).
+- The skill absorbs the last externally-held doctrine: trivial edits (few-line fixes, renames, doc tweaks) stay with the architect inline, and the session drives the grok CLI directly only for short single-answer web lookups. A user's CLAUDE.md needs only two lines: a standing trigger for this skill, plus the lane declaration.
 
 ## 3.4.1 — 2026-07-10
 
