@@ -2,6 +2,19 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.4.0 — 2026-07-11
+
+Partly adopted from a third external Grok 4.5 review.
+
+- **Review fallback chain** (the review pipeline previously had none): when the opposite-family CLI reviewer is unavailable, the cold pass falls back to the strongest Claude model available (Opus subagent, diff-only and cold — Claude is a third family versus both CLI implementers), announced. Review is never silently skipped and never silently same-family. Requirements now say full assurance wants both CLIs: your implementer's opposite family is your reviewer.
+- **Reviewers moved onto the supervisor**: `run-lane.sh` gains read-only `codex-review` / `grok-review` lane types, and both reviewer agents launch detached — a `TIMEOUT:` override above ~600s previously died at the harness's 10-minute foreground wall, the same bug class fixed for implementers in 3.4.0. Smoke test extended to cover the review lane path.
+- **Verification copy contradiction fixed**: the implementers' Rules and `VERIFIED:` field still demanded an unconditional re-run, undercutting 1.1.0's conditional verification — wrappers would burn the suite twice. Copy now consistently accepts captured-log evidence. (The reviewer's suggested "machine-checkable footer" was rejected: footers land in the model-authored final message and are claims, not evidence; the machine-captured log is the evidence.)
+- **Refutation bounds**: refute in severity order; after two respec → re-implement → re-review rounds on one diff, surface residual findings to the user instead of thrashing.
+- **Citation coordinates**: reviewers cite post-image (new-file) `file:line` so findings map to the working tree the refutation pass reads.
+- **Research verification teeth**: the verifying lane must fetch and read the sources themselves, never judge from the researcher's summaries.
+- **Must-do checklist** at the top of the skill — six obligations, an index against under-pressure skipping.
+- Copy fixes: doctor banner no longer claims a same-named upstream (stale since the rename); a missing CLI is now a doctor *warning* with the degradation spelled out (auth-broken stays a failure); `grok-implementer` names codex-reviewer as the usual cold lens; "route every lane by verifiability" softened to the supporting lanes it actually governs.
+
 ## 1.3.0 — 2026-07-10
 
 - **Verifiability routing stated as the general principle**: every lane routes by how its output can fail, not by task label — invisible-omission failure modes get the strongest model. (The exploration split shipped in 1.2.0 was one instance; now the rule itself is doctrine.)

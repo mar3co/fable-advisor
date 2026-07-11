@@ -22,9 +22,9 @@ export PATH="$SHIM:$PATH"
 SPEC=$(mktemp -t test-spec.XXXXXX)
 echo test > "$SPEC"
 
-launch() {  # $1=parent-secs $2=child-secs $3=budget-secs → sets PID WD LOG
+launch() {  # $1=parent-secs $2=child-secs $3=budget-secs [$4=lane] → sets PID WD LOG
   local out
-  out=$(FAKE_PARENT=$1 FAKE_CHILD=$2 "$RL" start codex "$SPEC" "$3")
+  out=$(FAKE_PARENT=$1 FAKE_CHILD=$2 "$RL" start "${4:-codex}" "$SPEC" "$3")
   PID=$(awk '/^PID:/{print $2}' <<< "$out")
   WD=$(awk '/^WATCHDOG:/{print $2}' <<< "$out")
   LOG=$(awk '/^LOG:/{print $2}' <<< "$out")
@@ -53,6 +53,13 @@ sleep 12   # budget 5s rounds up to one 10s poll; kill lands by ~10s
 if group_alive "$PID"; then fail "group survived the watchdog budget"; else pass "watchdog killed the whole group at budget"; fi
 grep -q "WATCHDOG: killed" "$LOG" && pass "watchdog kill recorded in LOG" || fail "no WATCHDOG line in LOG"
 "$RL" reap "$PID" "$WD" >/dev/null
+
+echo "test 4: review lane type launches read-only and reaps"
+launch 2 2 600 codex-review
+R=$("$RL" wait "$PID" 30)
+[ "$R" = EXITED ] && pass "codex-review lane ran and exited" || fail "codex-review wait printed '$R'"
+"$RL" reap "$PID" "$WD" >/dev/null
+group_alive "$PID" && fail "codex-review group survived reap" || pass "codex-review group reaped"
 
 printf '\n%s\n' "$([ "$FAILS" -eq 0 ] && echo "ALL PASS" || echo "$FAILS FAILURE(S)")"
 [ "$FAILS" -eq 0 ]

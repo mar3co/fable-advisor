@@ -10,7 +10,7 @@ bad() { printf '  FAIL %s\n' "$1"; FAIL=$((FAIL+1)); }
 
 VER=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$(dirname "$0")/../.claude-plugin/plugin.json" 2>/dev/null | head -1)
 echo "fable-orchestrator doctor — mar3co/fable-orchestrator, v${VER:-unknown}"
-echo "(independently maintained; not DannyMac180's original plugin of the same name)"
+echo "(independently maintained; originally derived from DannyMac180's fable-advisor)"
 echo
 
 T=$(command -v gtimeout || command -v timeout || true)
@@ -24,7 +24,7 @@ fi
 
 echo "codex lanes (implementer, reviewer: gpt-5.6-sol)"
 if ! command -v codex >/dev/null 2>&1; then
-  bad "codex CLI not on PATH — npm i -g @openai/codex, then: codex login"
+  warn "codex CLI not installed — codex lanes degrade: implementation falls back per mode, cold review of grok diffs falls back to an Opus cold pass (install: npm i -g @openai/codex, then: codex login)"
 else
   ok "CLI present: $(codex --version 2>/dev/null | head -1)"
   OUT=$(mktemp -t doctor-codex.XXXXXX)
@@ -40,7 +40,7 @@ fi
 
 echo "grok lanes (default implementer, researcher, reviewer: grok-4.5)"
 if ! command -v grok >/dev/null 2>&1; then
-  bad "grok CLI not on PATH — install from https://x.ai/cli, then: grok login"
+  warn "grok CLI not installed — grok lanes degrade: implementation falls back per mode, cold review of codex diffs falls back to an Opus cold pass, research is unavailable (install from https://x.ai/cli, then: grok login)"
 else
   ok "CLI present: $(grok --version 2>/dev/null | head -1)"
   SPEC=$(mktemp -t doctor-grok.XXXXXX)

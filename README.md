@@ -38,6 +38,8 @@ flowchart TD
     K -->|"cold review of a<br/>behavior-bearing diff"| REV{"Who implemented it?"}
     REV -->|grok| CREV["codex-reviewer<br/>GPT-5.6 Sol · diff-only"]
     REV -->|"codex or Claude"| GREV["grok-reviewer<br/>Grok 4.5 · diff-only"]
+    CREV -.->|"unavailable — announced"| OREV["Opus cold review<br/>Claude subagent · diff-only"]
+    GREV -.->|"unavailable — announced"| OREV
     K -->|"commitment boundary:<br/>architecture, migration, API shape,<br/>two failed attempts"| ADV["fable-advisor<br/>Fable 5 · advises only"]
 
     GROK --> VER["Architect verifies:<br/>reads the diff, re-runs the<br/>spec's verification command"]
@@ -45,12 +47,12 @@ flowchart TD
     OPUS --> VER
 ```
 
-Fallbacks mirror by mode: whichever lane was chosen, an unavailable lane re-routes to the other CLI lane if installed, and the Opus subagent is always the terminal fallback — every substitution announced, verification never relaxed.
+Fallbacks mirror by mode: whichever lane was chosen, an unavailable implementation lane re-routes to the other CLI lane if installed, with the Opus subagent as the terminal fallback; an unavailable reviewer falls back to a cold Opus pass (Claude is a third family versus both CLI implementers). Every substitution announced, verification never relaxed, review never silently skipped.
 
 ## The rules that keep it honest
 
 - **One lane per task — never race.** Racing pays twice for typing plus once more for judging, and a plausible-looking wrong diff still needs review to catch. Assurance comes from verification plus tiered review of the diff.
-- **Verification is not review.** Verification asks "did it do what the spec said, and do the checks pass?" — the architect does it on every diff, with cross-vendor eyes. Cold review asks "what's wrong that the author didn't see?" — a separate reviewer pass, always from the model family that *didn't* write the diff (a same-family reviewer shares the author's blind spots). Security/auth/concurrency paths add a silent-failure completeness read on a strong Claude model. The orchestration skill carries the full tier rules.
+- **Verification is not review.** Verification asks "did it do what the spec said, and do the checks pass?" — the architect does it on every diff, with cross-vendor eyes. Cold review asks "what's wrong that the author didn't see?" — a separate reviewer pass, always from the model family that *didn't* write the diff (a same-family reviewer shares the author's blind spots), falling back to a cold Opus pass if that lane is down. Security/auth/concurrency paths add a silent-failure completeness read on a strong Claude model. The orchestration skill carries the full tier rules, the refutation pass, and its bounds.
 - **Reports are claims, not evidence — but captured logs are.** One authoritative verification run per task: the wrapper accepts the CLI's machine-captured log when it shows the verification command passing as the run's final act, and re-runs the command itself otherwise. The architect spot-checks reports and re-runs at integration points. Lane bugs get a corrected spec, not hand-fixes.
 - **Long runs survive.** Lanes launch their CLI detached under `scripts/run-lane.sh` — process-group supervision with a pure-bash watchdog — because the harness caps any foreground tool call at 10 minutes, which would otherwise kill supervision mid-run on exactly the tasks worth delegating.
 
@@ -108,7 +110,7 @@ The second line is optional if you want the grok default; set it to `codex` or `
 - **Claude Code ≥ 2.1.170** with a subscription that includes Fable 5 (Pro, Max, Team, or Enterprise — all current consumer plans qualify). No Fable access (e.g. API-key billing)? Use `/model opus` for the session and change `model: fable` → `model: opus` in the advisor file — same pattern, tiers shift down one.
 - **Grok lanes** (`grok-implementer`, `grok-researcher`, `grok-reviewer`): the [xAI Grok CLI](https://x.ai/cli), installed and authenticated (`grok login`). Drives **Grok 4.5** headlessly.
 - **Codex lanes** (`codex-implementer`, `codex-reviewer`): the [OpenAI Codex CLI](https://github.com/openai/codex) (`npm i -g @openai/codex`, then `codex login`). Invokes **GPT-5.6 Sol** at `model_reasoning_effort=high`; access may be limited during preview.
-- Install at least your chosen mode's CLI (mix wants both). A missing CLI fails loudly with a structured error — never a silent substitution — and the fallback chain moves on.
+- Install at least your chosen mode's CLI (mix wants both) — but full assurance wants both regardless of mode: your implementer's opposite family is your cold reviewer. With one CLI, implementation works normally and cold review falls back to an Opus cold pass, announced. A missing CLI always fails loudly with a structured error — never a silent substitution.
 - Heads-up: if a pinned **Claude** model isn't available on your account, Claude Code silently falls back to your session model — that quiet degradation applies only to Claude model pins; the grok and codex lanes always fail loudly. If advisor verdicts feel unremarkable, check your plan.
 
 Model resolution order in Claude Code: `CLAUDE_CODE_SUBAGENT_MODEL` env var → per-invocation `model` parameter → agent frontmatter → session model.
@@ -121,7 +123,7 @@ Model resolution order in Claude Code: `CLAUDE_CODE_SUBAGENT_MODEL` env var → 
 | codex (reviewing) | `--sandbox read-only` | Cannot write at all |
 | grok (implementing) | `--permission-mode acceptEdits`, never `--always-approve` | Edits files without prompting but gets no blanket command approval — it often can't run your test suite, so for grok's diffs the wrapper usually ends up being the one authoritative verification run |
 | grok (research/review) | No edit permissions requested | Read-and-report only |
-| implementer lanes | Launched detached under `scripts/run-lane.sh` (process-group kills, pure-bash watchdog — no coreutils needed) | Long runs survive the 10-minute foreground cap; the wall clock holds even if the supervising agent dies. `scripts/test-run-lane.sh` smoke-tests this without API calls |
+| all CLI lanes (implement and review) | Launched detached under `scripts/run-lane.sh` (process-group kills, pure-bash watchdog — no coreutils needed) | Long runs survive the 10-minute foreground cap; the wall clock holds even if the supervising agent dies. `scripts/test-run-lane.sh` smoke-tests this without API calls |
 
 ## Use it
 

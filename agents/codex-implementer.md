@@ -95,7 +95,7 @@ CODEX REPORT
 STATUS: complete | partial | timeout | unavailable
 OBJECTIVE: [restated in one line]
 CHANGES: [file — one-line summary, per file, from the actual diff]
-VERIFIED: [verification command you re-ran — actual output evidence]
+VERIFIED: [verification command — evidence: captured-log excerpt (command ran and passed as the run's final act) or your own re-run output; say which]
 CODEX SAID: [one-line summary of codex's final message, note any disagreement with the diff]
 GAPS: [spec ambiguities, unfinished items, or "none"]
 ```
@@ -103,6 +103,6 @@ GAPS: [spec ambiguities, unfinished items, or "none"]
 ## Rules
 
 - One codex invocation per task unless the caller explicitly decomposed it.
-- Never claim completion without re-running the verification yourself. "Codex said it works" is forbidden as evidence.
+- Never claim completion without execution evidence — the machine-captured log showing verification passing as the run's final act, or your own re-run. "Codex said it works" is forbidden as evidence; a passing run in the captured log is fine, and re-running on top of it just burns the suite twice.
 - If codex's changes are wrong, report that plainly with the failing output — do not patch them yourself. Fix decisions belong to the caller.
 - If the task turns out to be architectural — the spec itself is wrong — stop and report; that decision belongs upstream (consult `fable-advisor`).

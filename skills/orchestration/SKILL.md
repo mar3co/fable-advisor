@@ -7,13 +7,26 @@ description: Routing doctrine for the architect-as-orchestrator pattern — how 
 
 The session is the architect: it owns requirements, architecture, decomposition, specs, routing, and verification. It should almost never type implementation code — the one exception is trivial edits (few-line fixes, renames, doc/comment tweaks), which stay with the architect inline; everything else is delegated. The bright line: if it needs a verification command to trust, it isn't trivial. Implementation routing follows the session's configured mode — **grok** (fixed, the unconfigured default), **codex** (fixed), or **mix**, where the architect routes each task by kind (see "Choosing your implementation routing"). The unconfigured default is fixed-grok: cheap typing with assurance from verification and the review tiers, and a fixed binding cannot drift.
 
+## The checklist
+
+Every delegation, no exceptions — details in the sections below:
+
+1. **Mode** — grok (unconfigured default) | codex | mix, per the session's CLAUDE.md declaration.
+2. **Spec** — all five parts, an honest `TIMEOUT:` when it differs from the default, the smallest verification bundle that proves the change.
+3. **Report back** — read the diff; demand execution evidence (captured log or wrapper re-run), never a claim.
+4. **Behavior-bearing diff** — one cold review from the model family that did NOT implement it (if that lane is down: Opus cold, announced).
+5. **Findings** — refutation pass in severity order; max two respec rounds, then surface residuals to the user.
+6. **Commitment boundary / declaring done** — consult `fable-advisor` with exact files and pasted evidence.
+
+Every fallback is announced; verification and review never relax under fallback.
+
 ## Cost discipline — the prime directive
 
 The session model is the most expensive lane in the system, on both input and output tokens. The whole economic case for this pattern is keeping its token volume low: spend Fable on judgment; the CLI producers carry the code volume, with a thin Sonnet wrapper supervising each lane (preflight, wait slices, re-verification — real but modest overhead, stated honestly). Three rules follow.
 
 **Emit judgment, not volume.** The architect's output is decomposition, specs, routing decisions, verdicts on diffs, and short reports. It does not type implementation code, test bodies, boilerplate, or config files. A code block longer than an interface signature or a few illustrative lines is a spec that hasn't been delegated yet — stop and delegate it. Fixing a lane's bug by hand is the same failure in disguise: send a corrected spec back to the cheap lane instead.
 
-**Keep the context lean.** Everything in the architect's context is re-read at architect prices on every turn. Delegate exploration and log-grepping, keep only the conclusions, and route every lane by how its output can fail — by VERIFIABILITY, not task label: bounded, checkable lookups — where is X defined, list the callers, inventory the endpoints — go to a cheap read-only agent, because a wrong answer is visible and cheap to re-check; completeness-critical sweeps — "what else can touch this resource?", "are there other write paths?" — go to the strongest Claude model available (Agent tool, `model: "opus"`), because their failure mode is an invisible omission that never appears in the report and silently poisons the architecture built on it. Read files yourself only when the decision genuinely depends on the exact code — usually the ~40 lines around the seams, never the ~1,000-line file — and don't paste long files, full diffs, or verbose command output into the conversation when an excerpt will do: filter at the tool call (`--jq`, `grep`, `tail`) so raw dumps never enter context at all.
+**Keep the context lean.** Everything in the architect's context is re-read at architect prices on every turn. Delegate exploration and log-grepping, keep only the conclusions, and route the supporting lanes — exploration, research, review — by how their output can fail — by VERIFIABILITY, not task label: bounded, checkable lookups — where is X defined, list the callers, inventory the endpoints — go to a cheap read-only agent, because a wrong answer is visible and cheap to re-check; completeness-critical sweeps — "what else can touch this resource?", "are there other write paths?" — go to the strongest Claude model available (Agent tool, `model: "opus"`), because their failure mode is an invisible omission that never appears in the report and silently poisons the architecture built on it. Read files yourself only when the decision genuinely depends on the exact code — usually the ~40 lines around the seams, never the ~1,000-line file — and don't paste long files, full diffs, or verbose command output into the conversation when an excerpt will do: filter at the tool call (`--jq`, `grep`, `tail`) so raw dumps never enter context at all.
 
 **Reason once, then hand off.** Do the hard thinking — the architecture, the interface design, the debugging hypothesis — in one pass, capture it in the spec, and let the cheap lane carry it from there. Re-deriving decisions across turns burns the premium twice.
 
@@ -31,7 +44,7 @@ What stays with the architect regardless of cost: decomposition, interface desig
 
 The session may drive the `grok` CLI directly only for short single-answer web lookups; anything with long output (breadth research, review) runs inside the researcher/reviewer lanes so raw transcripts never enter the architect's context.
 
-Research leads are breadth, not truth. Before anything load-bearing rests on the researcher's findings, verification-grade synthesis — reading the sources, adversarially fact-checking, labeling confirmed vs anecdotal — goes to the strongest Claude model available (Agent tool, `model: "opus"`): mislabeling an anecdote as confirmed is another invisible-omission failure, so it gets the strongest model, not the cheapest.
+Research leads are breadth, not truth. Before anything load-bearing rests on the researcher's findings, verification-grade synthesis — fetching and reading the sources themselves (open the URLs; never judge from the researcher's summaries alone), adversarially fact-checking, labeling confirmed vs anecdotal — goes to the strongest Claude model available (Agent tool, `model: "opus"`): mislabeling an anecdote as confirmed is another invisible-omission failure, so it gets the strongest model, not the cheapest.
 
 Implementation goes to ONE lane — never race the CLI lanes on the same spec, even for correctness-critical work. Assurance comes from reviewing the diff (see "Review tiers"), not from duplicate implementations; the architect judging two diffs pays twice for typing and once more for the judging.
 
@@ -88,12 +101,14 @@ Pass it the decision, the constraints, the options considered, the exact file pa
 Verification (below) is not review. Verification asks "did it do what the spec said, and do the checks pass?" Cold review asks "what is wrong that the author — and the architect's own framing — didn't see?" The architect reading a lane's diff is verification with cross-vendor eyes, not cold review: the architect wrote the spec and is primed by it. Tier by the diff:
 
 - **Mechanical diffs** (renames, literal moves, no behavior change): verification only.
-- **Behavior-bearing diffs**: add one cold review pass — diff only, no intent framing — from a model family DIFFERENT from the implementer's: grok implemented → `codex-reviewer`; codex implemented → `grok-reviewer`; a Claude fallback lane implemented → either. A reviewer from the author's own family shares the author's blind spots and is not a second lens.
+- **Behavior-bearing diffs**: add one cold review pass — diff only, no intent framing — from a model family DIFFERENT from the implementer's: grok implemented → `codex-reviewer`; codex implemented → `grok-reviewer`; a Claude fallback lane implemented → either. A reviewer from the author's own family shares the author's blind spots and is not a second lens. If the opposite-family CLI reviewer is unavailable, the cold pass falls back to the strongest Claude model available (Agent tool, `model: "opus"`, diff-only and cold — Claude is a third family versus both CLI implementers), announced like every substitution. Review is never silently skipped and never silently same-family.
 - **Security / auth / concurrency / migration paths**: additionally have a strong Claude model read every error / nil / empty / timeout branch for silent failure (a read-only session pass or an Opus subagent). Omission-type misses never appear in any reviewer's report, so this tier is about completeness, not a second opinion.
 
 If in doubt whether a diff is mechanical, it isn't.
 
 Reviewer findings are claims, not verdicts — the architect runs the **refutation pass** before acting. For each finding: read the cited `file:line` against the actual code and try to refute it. Refuted → drop it, with a one-line reason. Confirmed → a corrected spec goes back to the implementation lane, never a hand-fix. Cold lenses trade precision for recall, so false positives are expected — each costs one refutation, while every unique true positive is pure gain. On security-tier diffs, also refute the *clean* report: "no findings" is itself a claim, so spot-check the diff's riskiest branch yourself before accepting it — the unchallenged "it's fine" is where bugs hide.
+
+Refute in severity order — the wrapper has already prefiltered citations, so the queue is real work, but the top of it decides ship/no-ship. And bound the loop: after two respec → re-implement → re-review rounds on the same diff, stop and surface the residual findings to the user with your recommendation instead of thrashing.
 
 ## Verification
 

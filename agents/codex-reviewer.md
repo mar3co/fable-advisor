@@ -41,7 +41,8 @@ SPEC=$(mktemp -t codex-review.XXXXXX)
 {
   echo "Review this diff cold. You have no information about intent — judge only what the code does."
   echo "Report defects: correctness, error/nil/empty branches, concurrency, lifecycle, security."
-  echo "For EVERY claim cite file:line from the diff. An uncited claim is worthless."
+  echo "For EVERY claim cite file:line using the NEW file's (post-image) line numbers,"
+  echo "so findings map to the working tree. An uncited claim is worthless."
   echo "Rank findings by severity. If you find nothing, say so plainly — do not manufacture findings."
   echo
   echo "--- DIFF ---"
@@ -51,24 +52,16 @@ SPEC=$(mktemp -t codex-review.XXXXXX)
 
 2. **Diff-size guard.** Check `wc -l < "$DIFF_FILE"` before invoking. Over ~1,500 lines, do NOT send the diff whole — review quality collapses silently past that point. Split it per file (`git diff <ref> -- <path>`) into batches under the limit and run one codex invocation per batch, merging the findings. If a single file alone exceeds the limit, send its most behavior-dense hunks and list the rest in `UNCOVERED`. Never silently truncate.
 
-3. Invoke codex non-interactively, read-only:
+3. Launch DETACHED via the plugin's supervisor — never in the foreground (the harness caps foreground tool calls at 10 minutes, and Sol at high reasoning on a large batch can exceed it):
 
 ```bash
-T=$(command -v gtimeout || command -v timeout || true)
-FINAL=$(mktemp -t codex-review-final.XXXXXX)
-SECS=600   # if the caller's prompt carries a "TIMEOUT: <seconds>" line, use that value instead
+RL="${CLAUDE_PLUGIN_ROOT}/scripts/run-lane.sh"
+[ -x "$RL" ] || RL=$(ls -d ~/.claude/plugins/cache/fable-orchestrator/fable-orchestrator/*/scripts/run-lane.sh 2>/dev/null | sort -V | tail -1)
 
-${T:+$T $SECS} codex exec \
-  --model gpt-5.6-sol \
-  -c model_reasoning_effort=high \
-  --sandbox read-only \
-  --skip-git-repo-check \
-  --cd "$(pwd)" \
-  --output-last-message "$FINAL" \
-  - < "$SPEC" > /dev/null 2>&1
+"$RL" start codex-review "$SPEC" 600   # use the caller's "TIMEOUT: <seconds>" value instead, if present
 ```
 
-`--sandbox read-only` — a reviewer never edits files, and gets no write access to try. On timeout, report `STATUS: timeout` with whatever landed.
+Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values. Repeat `"$RL" wait <PID>` until it prints `EXITED`, then always `"$RL" reap <PID> <WATCHDOG>`. The `codex-review` lane runs `--sandbox read-only` — a reviewer never edits files, and gets no write access to try. If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed.
 
 4. **Distill.** Read `"$FINAL"` (per batch, if the size guard split the diff). Keep each finding as severity + one-line claim + `file:line`. A finding codex didn't anchor to a `file:line` gets labeled `uncited` — pass it through flagged, never silently promote or drop it. Check that each cited line actually exists in the diff; a citation that doesn't match is itself worth flagging.
 
