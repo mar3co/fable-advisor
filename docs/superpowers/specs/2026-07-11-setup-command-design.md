@@ -80,8 +80,13 @@ reminder to start architect sessions with `/model fable`.
 
 ## Also touched
 
-- **README:** "Install" section gains a line pointing at
-  `/fable-orchestrator:setup` as the easy path; manual instructions stay.
+- **README:** the "Install" section presents `/fable-orchestrator:setup` as the
+  recommended next step immediately after the install commands — the command in
+  a code block plus a short explainer (interactive wizard: detects your CLIs,
+  asks lane mode / scope / always-on, writes the CLAUDE.md lines idempotently,
+  offers doctor validation). The manual "Choose your implementation routing"
+  and "Make it always-on" sections stay for users who prefer doing it by hand,
+  each gaining a one-line note that setup automates them.
 - **CHANGELOG:** new entry.
 - **plugin.json:** version bump to 1.7.0.
 
