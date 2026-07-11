@@ -87,6 +87,10 @@ Independent specs (no shared files, no ordering dependency) launch as parallel a
 
 Past roughly four parallel lanes, raw agent calls stop scaling — every report lands in the architect's context. Where the harness's Workflow tool is available, propose orchestrating the fan-out through it instead: lane transcripts never enter the architect's context and the control flow is deterministic. It requires the user's explicit opt-in — ask, don't assume.
 
+## Waiting on lanes — background by default
+
+Launch every lane — implementation, review, research, advisor — with `run_in_background: true` (SendMessage continuations background automatically), end the turn with a one-line status, and act on the completion notification. A sequential dependency is not a reason to wait synchronously: the notification resumes the architect with full context either way, at the same near-fully-cached re-read cost, while a synchronous wait holds the turn open for the lane's whole wall clock — the user can't interject, re-prioritize, or stop the work until it closes. (The lane's CLI already runs detached inside the agent; this is about the architect's own Agent call, which is what blocks the session.) Invoke synchronously only when the result must compose with in-context state within the same turn — rare — and say so in one line. Keep wake-up status messages to a line or two so notification re-invocations stay cheap. This makes the single-lane case consistent with the parallel fan-out above instead of a different, turn-blocking mode.
+
 ## Commitment boundaries
 
 Consult `fable-advisor` (read-only, verdict in under 300 words) at the moments that decide whether the next hour is wasted:

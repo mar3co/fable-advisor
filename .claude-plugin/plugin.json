@@ -1,6 +1,6 @@
 {
   "name": "fable-orchestrator",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Run your session on Claude's most capable model as a full-time architect: it writes specs and verdicts while Grok 4.5 (via the Grok CLI) and GPT-5.6 Sol at high reasoning (via Codex) do the typing — routing modes: grok-only (default), codex-only, or mix. Also ships grok-researcher (live web/X research) plus grok-reviewer and codex-reviewer (cold diff review lenses — always the family the implementer isn't). Fable-level judgment with cross-vendor implementation and review.",
   "author": {
     "name": "mar3co",

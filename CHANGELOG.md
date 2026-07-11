@@ -2,6 +2,12 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.7.0 — 2026-07-11
+
+Adopted from field use (#1).
+
+- **Background by default**: new "Waiting on lanes" doctrine section — every lane launches with `run_in_background: true`; the architect ends its turn on a one-line status and acts on the completion notification. A synchronous wait buys nothing (a blocked call generates no tokens, and a notification resume costs the same near-fully-cached context re-read) while holding the session hostage to the lane's wall clock — the user can't interject until the turn closes. Synchronous invocation stays available as the rare, announced exception for results that must compose in-turn. Surfaced in the README rules; the checklist stays frozen at seven (it indexes delegation steps, and this governs the wait, not the delegation).
+
 ## 1.6.0 — 2026-07-11
 
 Adopted from a fifth external Grok 4.5 review — all four items, one with a design choice.

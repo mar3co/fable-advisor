@@ -54,6 +54,7 @@ Fallbacks mirror by mode: whichever lane was chosen, an unavailable implementati
 - **Declared spikes skip review, not verification.** Caller-declared throwaway/prototype work gets verification only — declared, never inferred, restated in the lane report — and spike code promoted toward main re-enters the full review tiers before merge. The named escape valve exists so nobody invents informal downgrades under pressure.
 - **Reports are claims, not evidence — but captured logs are.** One authoritative verification run per task: the wrapper accepts the CLI's machine-captured log when it shows the verification command passing as the run's final act, and re-runs the command itself otherwise. The architect spot-checks reports and re-runs at integration points. Lane bugs get a corrected spec, not hand-fixes.
 - **Long runs survive.** Lanes launch their CLI detached under `scripts/run-lane.sh` — process-group supervision with a pure-bash watchdog — because the harness caps any foreground tool call at 10 minutes, which would otherwise kill supervision mid-run on exactly the tasks worth delegating.
+- **Lanes run in the background by default.** The architect launches every lane with `run_in_background: true`, ends its turn with a one-line status, and acts on the completion notification. A sequential dependency is not a reason to hold the turn open for a lane's whole wall clock while the user can't interject — synchronous waits are the rare, announced exception, not the default.
 
 ## Install
 
