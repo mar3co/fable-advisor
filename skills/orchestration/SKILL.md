@@ -52,7 +52,7 @@ Implementers share none of your conversation context. Every delegation prompt ca
 4. **Constraints** — project conventions, things not to touch
 5. **Verification** — the command(s) that prove it works
 
-A spec may additionally carry an optional `TIMEOUT: <seconds>` line to raise a lane's 600-second default wall clock when the task plausibly needs longer.
+Estimate the task's wall clock honestly in every spec and include a `TIMEOUT: <seconds>` line whenever the estimate differs meaningfully from the implementation lanes' 1800-second default (the research/review lanes default to 600). An undersized budget kills a legitimate run mid-flight; an oversized one delays detection of a genuinely hung lane — accuracy beats generosity in both directions.
 
 A spec you can't finish writing is a signal the decision isn't made yet — that's architect work, not a reason to hand the ambiguity to a cheaper model.
 

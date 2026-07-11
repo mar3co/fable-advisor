@@ -48,13 +48,14 @@ and include its actual output in your final message."]
 SPEC_EOF
 ```
 
-2. Invoke codex non-interactively, sandboxed to the workspace, with reasoning effort pinned high:
+2. Launch codex DETACHED, non-interactively, sandboxed to the workspace, with reasoning effort pinned high. Detaching matters: the harness caps any single foreground tool call at 10 minutes — a foreground launch kills the lane's supervision mid-run on long tasks while codex keeps working as an orphan. The timeout wraps the detached process itself, so the wall clock holds even if this agent dies:
 
 ```bash
 # Portable timeout: macOS has no `timeout` unless coreutils is installed
 T=$(command -v gtimeout || command -v timeout || true)
 [ -z "$T" ] && echo "WARN: no timeout binary — codex runs uncapped (brew install coreutils to cap)"
-SECS=600   # if the caller's spec carries a "TIMEOUT: <seconds>" line, use that value instead
+LOG=$(mktemp -t codex-log.XXXXXX)
+SECS=1800   # if the caller's spec carries a "TIMEOUT: <seconds>" line, use that value instead
 
 ${T:+$T $SECS} codex exec \
   --model gpt-5.6-sol \
@@ -63,8 +64,18 @@ ${T:+$T $SECS} codex exec \
   --skip-git-repo-check \
   --cd "$(pwd)" \
   --output-last-message "$FINAL" \
-  - < "$SPEC"
+  - < "$SPEC" > "$LOG" 2>&1 &
+echo "PID=$!"
 ```
+
+3. Wait in bounded slices — never one long foreground call. Repeat this command (substituting the PID you captured) until it prints `EXITED`:
+
+```bash
+i=0; while [ $i -lt 48 ] && kill -0 PID 2>/dev/null; do sleep 5; i=$((i+1)); done
+kill -0 PID 2>/dev/null && echo STILL-RUNNING || echo EXITED
+```
+
+Each slice waits at most 240 seconds. Never write your report while codex is still running — keep slicing until `EXITED` or the `SECS` budget is spent (after roughly `SECS / 240` slices). If the budget is spent and the process is somehow still alive (no timeout binary was found at launch), `kill PID`, run one more slice, and report `STATUS: timeout` with whatever landed in the diff.
 
 Flag discipline (non-negotiable):
 
@@ -74,11 +85,12 @@ Flag discipline (non-negotiable):
 | `-c model_reasoning_effort=high` | Pins GPT-5.6 Sol to high reasoning for complex implementation work. |
 | `--skip-git-repo-check` + `--cd "$(pwd)"` | Deterministic working root; works outside git repos. |
 | `- < spec file` | Prompt via stdin. No quoting hazards, no truncated specs. |
-| `${T:+$T $SECS}` | 600-second wall clock by default when `timeout`/`gtimeout` exists (macOS needs `brew install coreutils`); runs uncapped otherwise. The caller's spec may raise it with a `TIMEOUT: <seconds>` line — long codex runs at high reasoning legitimately exceed ten minutes. On timeout, report `STATUS: timeout` with whatever landed. |
+| `${T:+$T $SECS}` | Hard wall clock around the detached process — holds even if this agent dies. 1800-second default (macOS needs `brew install coreutils`); the caller's spec may override it with a `TIMEOUT: <seconds>` line. On timeout, report `STATUS: timeout` with whatever landed. |
+| `… &` + `echo "PID=$!"` | Detached launch. The harness caps foreground tool calls at 10 minutes; detaching frees the lane to supervise runs of any length via bounded wait slices. |
 
 `--model gpt-5.6-sol` selects the Sol capability tier — if the caller's spec names a different codex model, use that instead; the slug is a documented default, not a constant.
 
-3. **Verify independently.** Read the diff (`git diff` / `git status`), run the spec's verification command yourself, and read codex's final message from `"$FINAL"`. Codex's claim of success is not evidence; your re-run is.
+4. **Verify independently.** Read the diff (`git diff` / `git status`), run the spec's verification command yourself, and read codex's final message from `"$FINAL"` (and `"$LOG"` if the run ended abnormally). Codex's claim of success is not evidence; your re-run is.
 
 ## What you return
 

@@ -45,22 +45,32 @@ and include its actual output in your final message."]
 SPEC_EOF
 ```
 
-2. Invoke grok headlessly, scoped to the working tree:
+2. Launch grok DETACHED, headlessly, scoped to the working tree. Detaching matters: the harness caps any single foreground tool call at 10 minutes — a foreground launch kills the lane's supervision mid-run on long tasks while grok keeps working as an orphan. The timeout wraps the detached process itself, so the wall clock holds even if this agent dies:
 
 ```bash
 # Portable timeout: macOS has no `timeout` unless coreutils is installed
 T=$(command -v gtimeout || command -v timeout || true)
 [ -z "$T" ] && echo "WARN: no timeout binary — grok runs uncapped (brew install coreutils to cap)"
 FINAL=$(mktemp -t grok-final.XXXXXX)
-SECS=600   # if the caller's spec carries a "TIMEOUT: <seconds>" line, use that value instead
+SECS=1800   # if the caller's spec carries a "TIMEOUT: <seconds>" line, use that value instead
 
 ${T:+$T $SECS} grok --prompt-file "$SPEC" \
   -m grok-4.5 \
   --permission-mode acceptEdits \
   --output-format plain \
   --cwd "$(pwd)" \
-  > "$FINAL" 2>&1
+  > "$FINAL" 2>&1 &
+echo "PID=$!"
 ```
+
+3. Wait in bounded slices — never one long foreground call. Repeat this command (substituting the PID you captured) until it prints `EXITED`:
+
+```bash
+i=0; while [ $i -lt 48 ] && kill -0 PID 2>/dev/null; do sleep 5; i=$((i+1)); done
+kill -0 PID 2>/dev/null && echo STILL-RUNNING || echo EXITED
+```
+
+Each slice waits at most 240 seconds. Never write your report while grok is still running — keep slicing until `EXITED` or the `SECS` budget is spent (after roughly `SECS / 240` slices). If the budget is spent and the process is somehow still alive (no timeout binary was found at launch), `kill PID`, run one more slice, and report `STATUS: timeout` with whatever landed in the diff.
 
 Flag discipline (non-negotiable):
 
@@ -71,11 +81,12 @@ Flag discipline (non-negotiable):
 | `--permission-mode acceptEdits` | Grok edits files without prompting, but does not get blanket command approval. Never `--always-approve` — you re-run verification yourself. |
 | `--cwd "$(pwd)"` | Deterministic working root. |
 | `--output-format plain` | Final message to stdout, captured for the report. |
-| `${T:+$T $SECS}` | 600-second wall clock by default when `timeout`/`gtimeout` exists; the caller's spec may raise it with a `TIMEOUT: <seconds>` line. On timeout, report `STATUS: timeout` with whatever landed. |
+| `${T:+$T $SECS}` | Hard wall clock around the detached process — holds even if this agent dies. 1800-second default; the caller's spec may override it with a `TIMEOUT: <seconds>` line. On timeout, report `STATUS: timeout` with whatever landed. |
+| `… &` + `echo "PID=$!"` | Detached launch. The harness caps foreground tool calls at 10 minutes; detaching frees the lane to supervise runs of any length via bounded wait slices. |
 
 `-m grok-4.5` is the current top Grok tier — if the caller's spec names a different grok model, use that instead; the slug is a documented default, not a constant.
 
-3. **Verify independently.** Read the diff (`git diff` / `git status`), run the spec's verification command yourself, and read grok's final message from `"$FINAL"`. Grok's claim of success is not evidence; your re-run is. (`acceptEdits` may have blocked grok from running the verification itself — your re-run covers that by design.)
+4. **Verify independently.** Read the diff (`git diff` / `git status`), run the spec's verification command yourself, and read grok's final message from `"$FINAL"`. Grok's claim of success is not evidence; your re-run is. (`acceptEdits` may have blocked grok from running the verification itself — your re-run covers that by design.)
 
 ## What you return
 
