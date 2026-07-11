@@ -40,6 +40,14 @@ Then start your session as the architect:
 /model fable
 ```
 
+Verify the lanes before a task needs them:
+
+```
+bash scripts/doctor.sh
+```
+
+It checks for a timeout binary and validates both CLIs — presence, auth, and model access via one tiny live call per lane — and reminds you which checks Claude Code can only answer via `/model`.
+
 **Lite mode — one file, 30 seconds.** Don't want the full pattern? Copy [`agents/fable-advisor.md`](agents/fable-advisor.md) into `~/.claude/agents/` and keep your session on Sonnet. You get advisor consults at commitment boundaries without the orchestration layer (see "Advisor-only mode" below).
 
 ## Choosing your default lane

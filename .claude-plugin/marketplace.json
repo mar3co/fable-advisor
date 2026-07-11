@@ -11,7 +11,7 @@
     {
       "name": "fable-advisor",
       "source": "./",
-      "description": "Architect-as-orchestrator: your session runs Claude's most capable model, routing implementation to Grok 4.5 (Grok CLI) and GPT-5.6 Sol at high reasoning (Codex) — with a commitment-boundary advisor."
+      "description": "Architect-as-orchestrator: your session runs Claude's most capable model, routing implementation to GPT-5.6 Sol at high reasoning (Codex) or Grok 4.5 (Grok CLI) — default lane configurable — plus grok-researcher, grok-reviewer, and a commitment-boundary advisor."
     }
   ]
 }

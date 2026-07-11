@@ -51,14 +51,15 @@ SPEC_EOF
 # Portable timeout: macOS has no `timeout` unless coreutils is installed
 T=$(command -v gtimeout || command -v timeout || true)
 [ -z "$T" ] && echo "WARN: no timeout binary — grok runs uncapped (brew install coreutils to cap)"
+FINAL=$(mktemp -t grok-final.XXXXXX)
+SECS=600   # if the caller's spec carries a "TIMEOUT: <seconds>" line, use that value instead
 
-${T:+$T 600} grok --prompt-file "$SPEC" \
+${T:+$T $SECS} grok --prompt-file "$SPEC" \
   -m grok-4.5 \
   --permission-mode acceptEdits \
   --output-format plain \
   --cwd "$(pwd)" \
-  > /tmp/grok-final-$$.txt 2>&1
-FINAL=/tmp/grok-final-$$.txt
+  > "$FINAL" 2>&1
 ```
 
 Flag discipline (non-negotiable):
@@ -70,7 +71,7 @@ Flag discipline (non-negotiable):
 | `--permission-mode acceptEdits` | Grok edits files without prompting, but does not get blanket command approval. Never `--always-approve` — you re-run verification yourself. |
 | `--cwd "$(pwd)"` | Deterministic working root. |
 | `--output-format plain` | Final message to stdout, captured for the report. |
-| `${T:+$T 600}` | Ten-minute wall clock when `timeout`/`gtimeout` exists. On timeout, report `STATUS: timeout` with whatever landed. |
+| `${T:+$T $SECS}` | 600-second wall clock by default when `timeout`/`gtimeout` exists; the caller's spec may raise it with a `TIMEOUT: <seconds>` line. On timeout, report `STATUS: timeout` with whatever landed. |
 
 `-m grok-4.5` is the current top Grok tier — if the caller's spec names a different grok model, use that instead; the slug is a documented default, not a constant.
 

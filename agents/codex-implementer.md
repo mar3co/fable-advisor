@@ -54,8 +54,9 @@ SPEC_EOF
 # Portable timeout: macOS has no `timeout` unless coreutils is installed
 T=$(command -v gtimeout || command -v timeout || true)
 [ -z "$T" ] && echo "WARN: no timeout binary — codex runs uncapped (brew install coreutils to cap)"
+SECS=600   # if the caller's spec carries a "TIMEOUT: <seconds>" line, use that value instead
 
-${T:+$T 600} codex exec \
+${T:+$T $SECS} codex exec \
   --model gpt-5.6-sol \
   -c model_reasoning_effort=high \
   --sandbox workspace-write \
@@ -73,7 +74,7 @@ Flag discipline (non-negotiable):
 | `-c model_reasoning_effort=high` | Pins GPT-5.6 Sol to high reasoning for complex implementation work. |
 | `--skip-git-repo-check` + `--cd "$(pwd)"` | Deterministic working root; works outside git repos. |
 | `- < spec file` | Prompt via stdin. No quoting hazards, no truncated specs. |
-| `${T:+$T 600}` | Ten-minute wall clock when `timeout`/`gtimeout` exists (macOS needs `brew install coreutils`); runs uncapped otherwise. On timeout, report `STATUS: timeout` with whatever landed. |
+| `${T:+$T $SECS}` | 600-second wall clock by default when `timeout`/`gtimeout` exists (macOS needs `brew install coreutils`); runs uncapped otherwise. The caller's spec may raise it with a `TIMEOUT: <seconds>` line — long codex runs at high reasoning legitimately exceed ten minutes. On timeout, report `STATUS: timeout` with whatever landed. |
 
 `--model gpt-5.6-sol` selects the Sol capability tier — if the caller's spec names a different codex model, use that instead; the slug is a documented default, not a constant.
 

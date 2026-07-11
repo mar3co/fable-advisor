@@ -45,13 +45,14 @@ SPEC_EOF
 
 ```bash
 T=$(command -v gtimeout || command -v timeout || true)
+FINAL=$(mktemp -t grok-research.XXXXXX)
+SECS=600   # if the caller's prompt carries a "TIMEOUT: <seconds>" line, use that value instead
 
-${T:+$T 600} grok --prompt-file "$SPEC" \
+${T:+$T $SECS} grok --prompt-file "$SPEC" \
   -m grok-4.5 \
   --output-format plain \
   --cwd "$(pwd)" \
-  > /tmp/grok-research-$$.txt 2>&1
-FINAL=/tmp/grok-research-$$.txt
+  > "$FINAL" 2>&1
 ```
 
 No `--permission-mode acceptEdits` — this lane never edits files. On timeout, report `STATUS: timeout` with whatever landed.

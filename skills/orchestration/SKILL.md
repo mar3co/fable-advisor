@@ -52,6 +52,8 @@ Implementers share none of your conversation context. Every delegation prompt ca
 4. **Constraints** — project conventions, things not to touch
 5. **Verification** — the command(s) that prove it works
 
+A spec may additionally carry an optional `TIMEOUT: <seconds>` line to raise a lane's 600-second default wall clock when the task plausibly needs longer.
+
 A spec you can't finish writing is a signal the decision isn't made yet — that's architect work, not a reason to hand the ambiguity to a cheaper model.
 
 ## Parallelism
@@ -66,7 +68,7 @@ Consult `fable-advisor` (read-only, verdict in under 300 words) at the moments t
 - Whenever the same problem has resisted two distinct attempts
 - Once before declaring a multi-step deliverable done
 
-Pass it the decision, the constraints, and the options considered. Act on the verdict or surface the disagreement — never silently ignore it. (If the session itself already runs on Fable, the advisor still earns its keep as a context-clean skeptic reading the actual code.)
+Pass it the decision, the constraints, the options considered, and the exact file paths to read — it is read-only, and a skeptic is only as good as the code it is pointed at. Act on the verdict or surface the disagreement — never silently ignore it. (If the session itself already runs on Fable, the advisor still earns its keep as a context-clean skeptic reading the actual code.)
 
 ## Verification
 
