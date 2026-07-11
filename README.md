@@ -110,7 +110,7 @@ The skill honors intent over exact syntax — "let the orchestrator pick the imp
 
 ## Make it always-on
 
-(`/fable-orchestrator:setup` writes these lines for you — this section is the manual path.) Add two lines to your `CLAUDE.md` (user-level for every project, or per-project) — a standing trigger plus your mode declaration. The trigger is gated on the session model, so sessions on other models (e.g. Opus) skip the flow. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
+(`/fable-orchestrator:setup` writes this for you — this section is the manual path.) Add one standing trigger line to your `CLAUDE.md` (user-level for every project, or per-project). It's gated on the session model, so sessions on other models (e.g. Opus) skip the flow. Pair it with your lane line from "Choose your implementation routing" above unless you want the grok default. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
 
 ```
 - When the session model is Fable, without being reminded: non-trivial
@@ -118,10 +118,9 @@ The skill honors intent over exact syntax — "let the orchestrator pick the imp
   invoke the fable-orchestrator:orchestration skill before delegating and
   follow it as authoritative for routing, verification, review tiers, and
   advisor consults.
-- fable-orchestrator: implementation lane = grok
 ```
 
-The second line is optional if you want the grok default; set it to `codex` or `mix` to choose otherwise.
+Prefer to keep it manual instead? See "Use it" below — the flow triggers per task just as well.
 
 ## Requirements
 
@@ -153,6 +152,10 @@ implementation, and verify the evidence before you call it done.
 ```
 
 The architect writes the five-part spec (objective, files, interfaces, constraints, verification — plus an honest `TIMEOUT:` estimate for long tasks), routes it per your mode, reads the diff and verification evidence when the report comes back, sends behavior-bearing diffs to the opposite-family cold reviewer, and only then reports done.
+
+### Without always-on (per-task trigger)
+
+Skipped the always-on trigger? Invoke the flow per task instead — type `/fable-orchestrator:orchestration` followed by your request, or just say so in plain words ("use the fable-orchestrator flow for this"). Routing, verification, and review work identically; the always-on line only saves you the invocation.
 
 ## Commitment boundaries
 
