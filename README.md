@@ -1,7 +1,5 @@
 # Fable Orchestrator
 
-> Originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) (MIT), now independently maintained under a new name so the two can't be confused at install time. `scripts/doctor.sh` prints which plugin you have.
-
 **The smartest model runs the show. Cheaper models do the typing.**
 
 Claude Code lets every subagent run on a different model — and lets the session itself run on a different model than its subagents. This plugin exploits that with the **architect pattern**: your session runs on **Fable 5**, Anthropic's most capable model, acting as a full-time architect. It owns requirements, decomposition, specs, routing, and verification — and delegates everything else to cross-vendor lanes:
