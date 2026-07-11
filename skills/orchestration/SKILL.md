@@ -23,14 +23,24 @@ What stays with the architect regardless of cost: decomposition, interface desig
 
 | Lane | Producer | Invoke | Route here when |
 |---|---|---|---|
-| Implementation | GPT-5.6 Sol (high reasoning) | `codex-implementer` agent | All implementation work, routine or correctness-critical. **Default lane.** Requires the codex CLI. |
-| Implementation fallback | Grok 4.5 | `grok-implementer` agent | The codex lane is unavailable — service offline, auth failure, usage limit, CLI missing, timeout. Requires the [Grok CLI](https://x.ai/cli). |
+| Implementation (default) | GPT-5.6 Sol (high reasoning) | `codex-implementer` agent | All implementation work, routine or correctness-critical — unless the user declared grok the default (see "Choosing your default lane"). Requires the codex CLI. |
+| Implementation (alternate) | Grok 4.5 | `grok-implementer` agent | The user declared grok the default implementation lane, or the default lane is unavailable. Requires the [Grok CLI](https://x.ai/cli). |
 | Research / review | Grok 4.5 | `grok-researcher` / `grok-reviewer` agents | Not implementation lanes: breadth-first live-web/X research and mechanical codebase lookups (`grok-researcher`), or a cold second review lens on a diff (`grok-reviewer`). |
 | Judgment | Fable 5 | `fable-advisor` agent | Not an implementation lane. See "Commitment boundaries" below. |
 
-Implementation goes to codex alone — never race codex against another lane on the same spec, even for correctness-critical work. Assurance comes from the review gauntlet (cross-vendor cold review of the diff), not from duplicate implementations; the architect judging two diffs pays twice for typing and once more for the judging.
+Implementation goes to ONE lane — never race the CLI lanes on the same spec, even for correctness-critical work. Assurance comes from the review gauntlet (cross-vendor cold review of the diff), not from duplicate implementations; the architect judging two diffs pays twice for typing and once more for the judging.
 
-The fallback chain is fixed and every step is announced explicitly, never silently absorbed: codex unavailable → `grok-implementer` (cross-vendor separation survives the outage) → if grok is also unavailable, a Claude Opus subagent (Agent tool, `model: "opus"`). Verification and review do not relax under fallback — a substitute lane makes them matter more.
+The fallback chain is fixed and every step is announced explicitly, never silently absorbed: if the default lane is unavailable (service offline, auth failure, usage limit, CLI missing, timeout), re-route the same spec to the other CLI lane — cross-vendor separation survives the outage. If both CLI lanes are unavailable, the final fallback is always a Claude Opus subagent (Agent tool, `model: "opus"`). Verification and review do not relax under fallback — a substitute lane makes them matter more.
+
+## Choosing your default lane
+
+`codex-implementer` (GPT-5.6 Sol) is the default implementation lane when nothing says otherwise. To make Grok the default instead, declare it in any CLAUDE.md that applies to the session — canonical form, one line:
+
+```
+fable-advisor: default implementation lane = grok
+```
+
+Honor the intent, not the exact string — any clear statement of implementation-lane preference in the user's instructions counts (e.g. "grok is my default implementation lane"). The declaration flips the routing only: the other CLI lane becomes the first fallback, the Opus subagent stays the final fallback, and the spec contract, verification, and review rules apply identically to both lanes.
 
 ## The spec contract
 
