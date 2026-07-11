@@ -75,7 +75,7 @@ Then start your session as the architect:
 /model fable
 ```
 
-Verify the lanes before a task needs them — checks both CLIs (presence, auth, model access via one tiny live call each) and prints exactly which plugin and version you're running. The setup wizard already offers this check as its final step:
+Verify the lanes before a task needs them — checks presence of both CLIs (a missing one is a warning, not a failure), auth and model access via one tiny live call per installed CLI, and prints exactly which plugin and version you're running. The setup wizard already offers this check as its final step:
 
 ```
 /fable-orchestrator:doctor

@@ -1,7 +1,7 @@
 # `/fable-orchestrator:setup` — post-install setup wizard
 
 **Date:** 2026-07-11
-**Status:** approved design, pre-implementation
+**Status:** approved and implemented (shipped in 1.8.0)
 
 ## Purpose
 
