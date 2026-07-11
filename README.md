@@ -19,7 +19,7 @@ The plugin ships the **orchestration skill** — the routing doctrine that teach
 ## Install
 
 ```
-claude plugin marketplace add DannyMac180/fable-advisor
+claude plugin marketplace add mar3co/fable-advisor
 claude plugin install fable-advisor@fable-advisor
 ```
 
@@ -100,10 +100,6 @@ touching 3+ files, consult the fable-advisor agent and act on its verdict.
 **Upgrading from v2?** v3 replaced the Sonnet/Opus `implementer` agent with `grok-implementer` — Grok 4.5 via the [Grok CLI](https://x.ai/cli) is now the default typing lane. v3.1 upgrades the optional `codex-implementer` lane from GPT-5.5 to GPT-5.6 Sol at high reasoning. The `fable-advisor` agent and advisor-only mode work exactly as before. If you preferred the Claude implementer, grab [`implementer.md` from the v2.1.0 tag](https://github.com/DannyMac180/fable-advisor/blob/3c1846c/agents/implementer.md).
 
 **Why Grok and GPT-5.6 Sol lanes in a Claude plugin?** Vendor diversity. Models from one family share blind spots; an independent implementation from a different lineage catches what same-family review misses — and with Claude as the architect, *every* diff now gets cross-vendor review for free. The architect stays Claude — the lanes are producers, not judges.
-
-## Go deeper
-
-I write [**Attention Heads**](https://attentionheads.substack.com/?utm_source=github&utm_medium=readme&utm_campaign=fable-advisor) — deep, evidence-backed writing on AI, cognition, and agentic engineering. The **Agentic Engineering Field Notes** series is where I publish practical advice on the craft of using AI. [Subscribe](https://attentionheads.substack.com/subscribe?utm_source=github&utm_medium=readme&utm_campaign=fable-advisor) to get new posts to your inbox.
 
 ## License
 
