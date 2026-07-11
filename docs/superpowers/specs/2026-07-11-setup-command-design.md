@@ -95,7 +95,8 @@ reminder to start architect sessions with `/model fable`.
   and "Make it always-on" sections stay for users who prefer doing it by hand,
   each gaining a one-line note that setup automates them.
 - **CHANGELOG:** new entry.
-- **plugin.json:** version bump to 1.7.0.
+- **plugin.json:** version bump to 1.8.0 (1.7.0 was claimed mid-development by
+  the background-by-default release).
 
 ## Testing
 

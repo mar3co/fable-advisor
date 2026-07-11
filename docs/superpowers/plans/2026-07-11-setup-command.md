@@ -4,13 +4,13 @@
 
 **Goal:** Ship an interactive post-install setup command that configures lane mode, CLAUDE.md scope, and the always-on trigger, per `docs/superpowers/specs/2026-07-11-setup-command-design.md`.
 
-**Architecture:** One new plugin command file (`commands/setup.md`) containing pure markdown instructions that drive a four-step wizard (detect → ask → write idempotently → validate). No scripts or code — the session model executes the instructions using Bash, AskUserQuestion, and file edits. README gains the command as the recommended install step; CHANGELOG and plugin.json carry the 1.7.0 release.
+**Architecture:** One new plugin command file (`commands/setup.md`) containing pure markdown instructions that drive a four-step wizard (detect → ask → write idempotently → validate). No scripts or code — the session model executes the instructions using Bash, AskUserQuestion, and file edits. README gains the command as the recommended install step; CHANGELOG and plugin.json carry the 1.8.0 release.
 
 **Tech Stack:** Claude Code plugin command (markdown + YAML frontmatter), bash (detection snippet only), existing `scripts/doctor.sh`.
 
 ## Global Constraints
 
-- Version bumps to exactly `1.7.0` in `.claude-plugin/plugin.json` (the only file carrying a version; `marketplace.json` has none).
+- Version bumps to exactly `1.8.0` in `.claude-plugin/plugin.json` (the only file carrying a version; `marketplace.json` has none). Originally planned as 1.7.0; the background-by-default release claimed that number mid-development.
 - The canonical trigger line is Fable-gated: it begins `- When the session model is Fable, without being reminded:` — copied verbatim below. The mode line stays unconditional.
 - The wizard must never: write outside the one chosen CLAUDE.md, install or log into a CLI, edit settings.json, check the Claude Code version, probe Fable access, or give API-key guidance.
 - Commit messages: plain imperative subject, no AI-attribution trailers of any kind.
@@ -266,14 +266,14 @@ git commit -m "Document the setup command and gate the always-on trigger to Fabl
 
 **Interfaces:**
 - Consumes: nothing beyond Tasks 1–2 being committed.
-- Produces: version `1.7.0`, which `scripts/doctor.sh` reads from plugin.json at runtime (no change needed there).
+- Produces: version `1.8.0`, which `scripts/doctor.sh` reads from plugin.json at runtime (no change needed there).
 
 - [ ] **Step 1: Add the CHANGELOG entry**
 
-Insert above the `## 1.6.0 — 2026-07-11` heading:
+Insert above the `## 1.7.0 — 2026-07-11` heading (the background-by-default entry):
 
 ```markdown
-## 1.7.0 — 2026-07-11
+## 1.8.0 — 2026-07-11
 
 - **`/fable-orchestrator:setup`**: interactive post-install wizard — detects installed CLIs and existing configuration, asks lane mode (grok/codex/mix, every option annotated with CLI status, none hidden), scope (user or project CLAUDE.md), and always-on; writes the two config lines idempotently (replaces an existing lane line in place, never duplicates the trigger, honest "no changes needed" on a no-op re-run); offers a doctor run at the end. Detect-and-warn only: it never installs CLIs, never touches settings.json, and writes to nothing but the one chosen CLAUDE.md.
 - **Fable-gated always-on trigger**: the canonical trigger line (written by setup, documented in the README) now begins "When the session model is Fable" — sessions on other models skip the flow instead of running an architect pattern their model wasn't chosen for. Setup detects a pre-existing unconditional trigger and offers to upgrade it in place.
@@ -282,23 +282,23 @@ Insert above the `## 1.6.0 — 2026-07-11` heading:
 
 - [ ] **Step 2: Bump the version**
 
-In `.claude-plugin/plugin.json`, change `"version": "1.6.0"` to `"version": "1.7.0"`.
+In `.claude-plugin/plugin.json`, change `"version": "1.7.0"` to `"version": "1.8.0"`.
 
 - [ ] **Step 3: Verify**
 
 Run:
 ```bash
 grep '"version"' .claude-plugin/plugin.json
-grep -n "## 1.7.0" CHANGELOG.md
+grep -n "## 1.8.0" CHANGELOG.md
 bash scripts/doctor.sh 2>/dev/null | head -1
 ```
-Expected: version line shows `1.7.0`; CHANGELOG heading found near the top; doctor's banner prints `v1.7.0` (its live checks may run — only the banner matters here; Ctrl-C/ignore the rest is fine, or accept the calls as a bonus validation).
+Expected: version line shows `1.8.0`; CHANGELOG heading found near the top; doctor's banner prints `v1.8.0` (its live checks may run — only the banner matters here; Ctrl-C/ignore the rest is fine, or accept the calls as a bonus validation).
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add CHANGELOG.md .claude-plugin/plugin.json
-git commit -m "Add the setup wizard, gate the always-on trigger to Fable (1.7.0)"
+git commit -m "Add the setup wizard, gate the always-on trigger to Fable (1.8.0)"
 ```
 
 ---
