@@ -1,5 +1,7 @@
 # Fable Advisor
 
+> **Fork notice (mar3co/fable-advisor).** This fork diverges from [upstream](https://github.com/DannyMac180/fable-advisor) doctrinally, on purpose: `codex-implementer` (GPT-5.6 Sol, high reasoning) is the DEFAULT implementation lane; `grok-implementer` is the codex-outage fallback (chain: codex → grok → Claude Opus subagent, every step announced); lanes are never raced — assurance comes from cross-vendor review of the diff, not duplicate implementations. It also adds two agents upstream doesn't have: `grok-researcher` (live web/X research + mechanical codebase lookups) and `grok-reviewer` (cold diff-only second review lens). Lane mechanics are kept identical to upstream so merges stay trivial. The tables and prose below are upstream's and describe grok-as-default — where they conflict with this notice, the fork's SKILL.md and agent files win.
+
 **The smartest model runs the show. Cheaper models do the typing.**
 
 Claude Code lets every subagent run on a different model — and lets the session itself run on a different model than its subagents. This plugin exploits that with the **architect pattern**: your session runs on **Fable 5**, Anthropic's most capable model, acting as a full-time architect. It owns requirements, decomposition, specs, and verification — and routes every implementation task to the cheapest adequate lane:

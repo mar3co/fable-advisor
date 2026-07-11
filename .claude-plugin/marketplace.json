@@ -4,8 +4,8 @@
     "description": "Model-routing patterns for Claude Code: architect-as-orchestrator with Grok 4.5 and GPT-5.6 Sol implementation lanes and a Fable 5 commitment-boundary advisor."
   },
   "owner": {
-    "name": "Dan McAteer",
-    "url": "https://github.com/DannyMac180"
+    "name": "mar3co",
+    "url": "https://github.com/mar3co"
   },
   "plugins": [
     {

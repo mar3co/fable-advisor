@@ -23,15 +23,14 @@ What stays with the architect regardless of cost: decomposition, interface desig
 
 | Lane | Producer | Invoke | Route here when |
 |---|---|---|---|
-| Routine | Grok 4.5 | `grok-implementer` agent | The spec fully determines the outcome: boilerplate, wiring, CRUD, mechanical edits, straightforward features. **Default lane.** Requires the [Grok CLI](https://x.ai/cli). |
-| Cross-vendor | GPT-5.6 Sol (high reasoning) | `codex-implementer` agent | Correctness/completeness is critical enough to want a second implementation, or as the alternative family when the grok lane is unavailable. Requires the codex CLI. |
+| Implementation | GPT-5.6 Sol (high reasoning) | `codex-implementer` agent | All implementation work, routine or correctness-critical. **Default lane.** Requires the codex CLI. |
+| Implementation fallback | Grok 4.5 | `grok-implementer` agent | The codex lane is unavailable — service offline, auth failure, usage limit, CLI missing, timeout. Requires the [Grok CLI](https://x.ai/cli). |
+| Research / review | Grok 4.5 | `grok-researcher` / `grok-reviewer` agents | Not implementation lanes: breadth-first live-web/X research and mechanical codebase lookups (`grok-researcher`), or a cold second review lens on a diff (`grok-reviewer`). |
 | Judgment | Fable 5 | `fable-advisor` agent | Not an implementation lane. See "Commitment boundaries" below. |
 
-Deciding rule: how much does the outcome depend on judgment the spec can't capture? Little → the default grok lane; you will verify anyway. A lot, and mistakes are costly → race both lanes on the same spec and pick the stronger diff, or keep that piece with the architect.
+Implementation goes to codex alone — never race codex against another lane on the same spec, even for correctness-critical work. Assurance comes from the review gauntlet (cross-vendor cold review of the diff), not from duplicate implementations; the architect judging two diffs pays twice for typing and once more for the judging.
 
-Grok vs codex is not a capability ranking — it's a failure-distribution question. Both are non-Anthropic families, so either lane's output gets genuine cross-vendor review from the Claude architect; racing them buys a *third* independent perspective for one extra lane's cost.
-
-If a lane returns `unavailable` or `timeout`, re-route the same spec to the other lane and say so explicitly in your report — never quietly absorb the substitution. If both CLI lanes are unavailable, implement with a Claude subagent and state the downgrade plainly.
+The fallback chain is fixed and every step is announced explicitly, never silently absorbed: codex unavailable → `grok-implementer` (cross-vendor separation survives the outage) → if grok is also unavailable, a Claude Opus subagent (Agent tool, `model: "opus"`). Verification and review do not relax under fallback — a substitute lane makes them matter more.
 
 ## The spec contract
 
@@ -47,7 +46,7 @@ A spec you can't finish writing is a signal the decision isn't made yet — that
 
 ## Parallelism
 
-Independent specs (no shared files, no ordering dependency) launch as parallel agents in a single message. Sequential chains and single-file surgery stay serial. For high-stakes work, a pick-the-stronger-diff race — `grok-implementer` and `codex-implementer` on the same spec, architect judges — buys three-vendor confidence for one extra lane's cost.
+Independent specs (no shared files, no ordering dependency) launch as parallel agents in a single message. Sequential chains and single-file surgery stay serial.
 
 ## Commitment boundaries
 
