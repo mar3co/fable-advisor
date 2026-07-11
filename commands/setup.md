@@ -86,10 +86,10 @@ Touch only the chosen file:
 - Create it if missing.
 - **Lane line**: if a `fable-orchestrator: implementation lane =` line exists,
   replace it in place; otherwise append the canonical mode line.
-- **Trigger** (only when always-on was chosen): if any line referencing
-  `fable-orchestrator:orchestration` already exists, do not add another —
-  rewrite it to the gated canonical form only if the user accepted the
-  upgrade; otherwise append the canonical trigger line.
+- **Trigger** (only when always-on was chosen): if no line referencing
+  `fable-orchestrator:orchestration` exists, append the canonical trigger
+  line. If one already exists, never add another — leave it as is, or rewrite
+  it in place to the gated canonical form if the user accepted the upgrade.
 - **No-op re-run**: if the chosen configuration already matches the file, make
   no edit — say "no changes needed" and list what was verified. Never silently
   rewrite a file.

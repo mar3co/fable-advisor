@@ -120,10 +120,10 @@ Touch only the chosen file:
 - Create it if missing.
 - **Lane line**: if a `fable-orchestrator: implementation lane =` line exists,
   replace it in place; otherwise append the canonical mode line.
-- **Trigger** (only when always-on was chosen): if any line referencing
-  `fable-orchestrator:orchestration` already exists, do not add another —
-  rewrite it to the gated canonical form only if the user accepted the
-  upgrade; otherwise append the canonical trigger line.
+- **Trigger** (only when always-on was chosen): if no line referencing
+  `fable-orchestrator:orchestration` exists, append the canonical trigger
+  line. If one already exists, never add another — leave it as is, or rewrite
+  it in place to the gated canonical form if the user accepted the upgrade.
 - **No-op re-run**: if the chosen configuration already matches the file, make
   no edit — say "no changes needed" and list what was verified. Never silently
   rewrite a file.
@@ -148,7 +148,7 @@ architect sessions with `/model fable`.
 
 Run:
 ```bash
-cd /Users/jm/Documents/GitHub/fable-orchestrator
+# from the repo root
 head -3 commands/setup.md
 grep -c "When the session model is Fable" commands/setup.md
 grep -c "CLAUDE_PLUGIN_ROOT" commands/setup.md
@@ -184,7 +184,7 @@ Update later with `claude plugin marketplace update fable-orchestrator && claude
 
 with:
 
-```markdown
+````markdown
 Then run the setup wizard — it detects your CLIs and any existing configuration, asks three questions (lane mode, user- or project-scope CLAUDE.md, always-on or not), writes the config lines idempotently, and offers to validate the lanes:
 
 ```
@@ -192,7 +192,7 @@ Then run the setup wizard — it detects your CLIs and any existing configuratio
 ```
 
 Update later with `claude plugin marketplace update fable-orchestrator && claude plugin update fable-orchestrator@fable-orchestrator`. Then start your session as the architect:
-```
+````
 
 - [ ] **Step 2: Note the automation in "Choose your implementation routing"**
 
@@ -212,7 +212,7 @@ with:
 
 Replace:
 
-```markdown
+````markdown
 Add two lines to your `CLAUDE.md` (user-level for every project, or per-project) — a standing trigger plus your mode declaration. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
 
 ```
@@ -222,11 +222,11 @@ Add two lines to your `CLAUDE.md` (user-level for every project, or per-project)
   authoritative for routing, verification, review tiers, and advisor consults.
 - fable-orchestrator: implementation lane = grok
 ```
-```
+````
 
 with:
 
-```markdown
+````markdown
 (`/fable-orchestrator:setup` writes these lines for you — this section is the manual path.) Add two lines to your `CLAUDE.md` (user-level for every project, or per-project) — a standing trigger plus your mode declaration. The trigger is gated on the session model, so sessions on other models (e.g. Opus) skip the flow. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
 
 ```
@@ -237,7 +237,7 @@ with:
   advisor consults.
 - fable-orchestrator: implementation lane = grok
 ```
-```
+````
 
 - [ ] **Step 4: Verify**
 
