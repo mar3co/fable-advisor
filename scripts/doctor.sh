@@ -10,7 +10,7 @@ bad() { printf '  FAIL %s\n' "$1"; FAIL=$((FAIL+1)); }
 
 VER=$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' "$(dirname "$0")/../.claude-plugin/plugin.json" 2>/dev/null | head -1)
 echo "fable-advisor doctor — mar3co/fable-advisor fork, v${VER:-unknown}"
-echo "(not the upstream DannyMac180 plugin: codex-default modes, no lane racing)"
+echo "(not the upstream DannyMac180 plugin: routing modes, no lane racing)"
 echo
 
 T=$(command -v gtimeout || command -v timeout || true)
@@ -22,7 +22,7 @@ else
   warn "none found — doctor's own live checks run uncapped (lanes are unaffected: run-lane.sh ships its own pure-bash watchdog)"
 fi
 
-echo "codex lane (default implementer: gpt-5.6-sol)"
+echo "codex lane (implementer: gpt-5.6-sol)"
 if ! command -v codex >/dev/null 2>&1; then
   bad "codex CLI not on PATH — npm i -g @openai/codex, then: codex login"
 else
@@ -38,7 +38,7 @@ else
   fi
 fi
 
-echo "grok lanes (implementer fallback, researcher, reviewer: grok-4.5)"
+echo "grok lanes (default implementer, researcher, reviewer: grok-4.5)"
 if ! command -v grok >/dev/null 2>&1; then
   bad "grok CLI not on PATH — install from https://x.ai/cli, then: grok login"
 else

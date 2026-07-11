@@ -5,7 +5,7 @@ description: Routing doctrine for the architect-as-orchestrator pattern — how 
 
 # Orchestration — the architect's routing doctrine
 
-The session is the architect: it owns requirements, architecture, decomposition, specs, routing, and verification. It should almost never type implementation code. Implementation routing follows the session's configured mode — **codex** (fixed, the unconfigured default), **grok** (fixed), or **mix**, where the architect routes each task by kind (see "Choosing your implementation routing"). The unconfigured default is fixed-codex: it optimizes for fewer subtle bugs over per-task token savings, and a fixed binding cannot drift.
+The session is the architect: it owns requirements, architecture, decomposition, specs, routing, and verification. It should almost never type implementation code. Implementation routing follows the session's configured mode — **grok** (fixed, the unconfigured default), **codex** (fixed), or **mix**, where the architect routes each task by kind (see "Choosing your implementation routing"). The unconfigured default is fixed-grok: cheap typing with assurance from verification and the review tiers, and a fixed binding cannot drift.
 
 ## Cost discipline — the prime directive
 
@@ -23,8 +23,8 @@ What stays with the architect regardless of cost: decomposition, interface desig
 
 | Lane | Producer | Invoke | Route here when |
 |---|---|---|---|
-| Implementation | GPT-5.6 Sol (high reasoning) | `codex-implementer` agent | All implementation in **codex** mode (the unconfigured default). In **mix** mode: correctness-critical work — concurrency, auth/security, migrations, subtle state, anything the spec can't fully pin. Requires the codex CLI. |
-| Implementation | Grok 4.5 | `grok-implementer` agent | All implementation in **grok** mode. In **mix** mode: mechanical work the spec fully determines — wiring, CRUD, boilerplate, make-the-types-match. Requires the [Grok CLI](https://x.ai/cli). |
+| Implementation | Grok 4.5 | `grok-implementer` agent | All implementation in **grok** mode (the unconfigured default). In **mix** mode: mechanical work the spec fully determines — wiring, CRUD, boilerplate, make-the-types-match. Requires the [Grok CLI](https://x.ai/cli). |
+| Implementation | GPT-5.6 Sol (high reasoning) | `codex-implementer` agent | All implementation in **codex** mode. In **mix** mode: correctness-critical work — concurrency, auth/security, migrations, subtle state, anything the spec can't fully pin. Requires the codex CLI. |
 | Research / review | Grok 4.5 | `grok-researcher` / `grok-reviewer` agents | Not implementation lanes: breadth-first live-web/X research (`grok-researcher`), or a cold second review lens on a diff (`grok-reviewer`). Codebase lookups (where-is-X-defined, list-callers, inventories) go to a cheap in-process read-only agent instead — faster and more accurate for file:line work than an external CLI hop. |
 | Judgment | Fable 5 | `fable-advisor` agent | Not an implementation lane. See "Commitment boundaries" below. |
 
@@ -37,13 +37,13 @@ The fallback chain is the same in every mode and every step is announced explici
 Three modes, declared with one line in any CLAUDE.md that applies to the session — canonical forms:
 
 ```
-fable-advisor: implementation lane = codex   (the unconfigured default)
-fable-advisor: implementation lane = grok
+fable-advisor: implementation lane = grok    (the unconfigured default)
+fable-advisor: implementation lane = codex
 fable-advisor: implementation lane = mix
 ```
 
-- **codex** — every implementation task goes to `codex-implementer`. Fixed; optimizes for fewer subtle bugs over per-task token savings.
-- **grok** — every implementation task goes to `grok-implementer`. Fixed; optimizes for cheap typing when specs are strong.
+- **grok** — every implementation task goes to `grok-implementer`. Fixed; cheap typing when specs are strong, with assurance from verification and the review tiers.
+- **codex** — every implementation task goes to `codex-implementer`. Fixed; maximum reasoning on every diff, for shops that want fewer subtle bugs over token savings.
 - **mix** — the architect routes each task by kind: mechanical work the spec fully determines (wiring, CRUD, boilerplate, make-the-types-match) → grok; correctness-critical work (concurrency, auth/security, migrations, subtle state, anything the spec can't fully pin) → codex at high reasoning. When in doubt, codex. State the chosen lane and why in one line when delegating.
 
 Honor the intent, not the exact string — any clear statement of implementation-lane preference in the user's instructions counts (e.g. "grok is my default implementation lane", "let the orchestrator pick the implementation model"). Mode changes routing only: the fallback chain, spec contract, verification, and review rules apply identically in all three.

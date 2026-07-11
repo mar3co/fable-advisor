@@ -1,6 +1,6 @@
 # Fable Advisor
 
-> Forked from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor). Same architect pattern; this fork optimizes for fewer subtle bugs over token cost: implementation routing is a declared mode (codex-only when unconfigured, grok-only, or mix — the architect routes per task), lanes are never raced, a Claude Opus subagent is always the terminal fallback, lanes run under a shipped process supervisor, and it adds `grok-researcher` and `grok-reviewer` agents.
+> Forked from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor). Same architect pattern; this fork makes implementation routing a declared mode (grok-only when unconfigured, codex-only, or mix — the architect routes per task), never races lanes, guarantees a Claude Opus subagent as the terminal fallback, runs lanes under a shipped process supervisor, adds tiered review doctrine, and adds `grok-researcher` / `grok-reviewer` agents.
 
 **The smartest model runs the show. Cheaper models do the typing.**
 
@@ -8,15 +8,15 @@ Claude Code lets every subagent run on a different model — and lets the sessio
 
 | Lane | Producer | Invocation | Route here when |
 |---|---|---|---|
-| Implementation | **GPT-5.6 Sol** (high reasoning) | `codex-implementer` agent | All implementation in **codex** mode (the unconfigured default); the correctness-critical share in **mix** mode |
-| Implementation | **Grok 4.5** | `grok-implementer` agent | All implementation in **grok** mode; the mechanical, spec-determined share in **mix** mode |
+| Implementation | **Grok 4.5** | `grok-implementer` agent | All implementation in **grok** mode (the unconfigured default); the mechanical, spec-determined share in **mix** mode |
+| Implementation | **GPT-5.6 Sol** (high reasoning) | `codex-implementer` agent | All implementation in **codex** mode; the correctness-critical share in **mix** mode |
 | Research | Grok 4.5 | `grok-researcher` agent | Breadth-first live-web/X research — returns distilled, cited findings. Codebase lookups stay with cheap in-process read-only agents |
 | Review | Grok 4.5 | `grok-reviewer` agent | A cold second review lens on a behavior-bearing diff — diff only, no intent framing, every claim cited `file:line` |
 | Judgment | Fable 5 | `fable-advisor` agent | Commitment boundaries — see below |
 
 Tokens route by volume: the expensive model emits the fewest tokens (judgment and specs), the CLI producers emit the most (code), and a thin Sonnet wrapper supervises each lane. The CLI lanes don't need to match the architect — they need to be **good enough when the architect owns the hard parts and verifies**; that's the economic case, and it runs far cheaper than Fable-for-everything. Every implementation is *verified* by a different model family than the one that wrote it (the architect reads the diff and re-runs the checks). Cold adversarial review — "what's wrong that the author didn't see?" — is a separate, explicit step via `grok-reviewer`; see the review tiers in the orchestration skill.
 
-Implementation always goes to ONE lane — lanes are never raced on the same spec. Assurance comes from cross-vendor review of the diff, not duplicate implementations. If the default lane is unavailable (service offline, auth failure, usage limit, CLI missing, timeout), the same spec re-routes to the other CLI lane; if both CLI lanes are down, the final fallback is always a Claude Opus subagent. Every fallback step is announced, never silent, and verification does not relax under fallback.
+Implementation always goes to ONE lane — lanes are never raced on the same spec. Assurance comes from cross-vendor review of the diff, not duplicate implementations. If the chosen lane is unavailable (service offline, auth failure, usage limit, CLI missing, timeout), the same spec re-routes to the other CLI lane; if both CLI lanes are down, the final fallback is always a Claude Opus subagent. Every fallback step is announced, never silent, and verification does not relax under fallback.
 
 The plugin ships the **orchestration skill** — the routing doctrine that teaches the session when to use each lane, the cost discipline that keeps the expensive model's own token volume minimal (emit judgment not volume, keep context lean, reason once then hand off), the five-part spec contract that makes context-free delegation safe, and the verification rules that keep cheap lanes honest.
 
@@ -29,13 +29,13 @@ flowchart TD
     Q -->|no| K{"What kind of work?"}
 
     K -->|implementation| DEF{"Implementation mode?<br/>(one CLAUDE.md line)"}
-    DEF -->|"codex — unconfigured default"| CODEX["codex-implementer<br/>GPT-5.6 Sol · high reasoning"]
-    DEF -->|grok| GROK["grok-implementer<br/>Grok 4.5"]
+    DEF -->|"grok — unconfigured default"| GROK["grok-implementer<br/>Grok 4.5"]
+    DEF -->|codex| CODEX["codex-implementer<br/>GPT-5.6 Sol · high reasoning"]
     DEF -->|mix| MIX{"Task kind?"}
     MIX -->|"mechanical,<br/>spec-determined"| GROK
     MIX -->|"correctness-critical,<br/>or in doubt"| CODEX
-    CODEX -->|"unavailable — announced"| GROK
-    GROK -->|"unavailable — announced"| OPUS["Claude Opus subagent<br/>always the final fallback"]
+    GROK -->|"unavailable — announced"| CODEX
+    CODEX -->|"unavailable — announced"| OPUS["Claude Opus subagent<br/>always the final fallback"]
 
     K -->|"live web/X research"| RES["grok-researcher<br/>Grok 4.5 · read-only"]
     K -->|"cold review of a<br/>behavior-bearing diff"| REV["grok-reviewer<br/>Grok 4.5 · diff-only"]
@@ -80,16 +80,16 @@ It checks for a timeout binary and validates both CLIs — presence, auth, and m
 
 ## Choosing your implementation routing
 
-One line in any CLAUDE.md that applies to your session picks the mode — codex is the unconfigured default:
+One line in any CLAUDE.md that applies to your session picks the mode — grok is the unconfigured default:
 
 ```
-fable-advisor: implementation lane = codex
 fable-advisor: implementation lane = grok
+fable-advisor: implementation lane = codex
 fable-advisor: implementation lane = mix
 ```
 
-- **codex** — everything goes to GPT-5.6 Sol at high reasoning. Optimizes for fewer subtle bugs over per-task token savings.
-- **grok** — everything goes to Grok 4.5. Cheap typing when your specs are strong.
+- **grok** — everything goes to Grok 4.5. Cheap typing when your specs are strong, with assurance from verification and the review tiers.
+- **codex** — everything goes to GPT-5.6 Sol at high reasoning. Maximum reasoning on every diff, for shops that want fewer subtle bugs over token savings.
 - **mix** — the architect routes each task by kind: mechanical, spec-determined work (wiring, CRUD, boilerplate) → grok; correctness-critical work (concurrency, auth, migrations, subtle state) → codex; when in doubt → codex.
 
 The skill honors intent over exact syntax — "let the orchestrator pick the implementation model" selects mix just as well. Availability is discovered, not declared: in every mode an unavailable lane falls back to the other CLI lane if it's installed, then always to a Claude Opus subagent, every step announced — you don't need a special mode just because you only have one CLI. Mode changes routing only; the spec contract, verification, and review rules apply identically in all three.
@@ -98,8 +98,8 @@ The skill honors intent over exact syntax — "let the orchestrator pick the imp
 
 - **Claude Code ≥ 2.1.170** with a subscription that includes Fable 5 (Pro, Max, Team, or Enterprise — all current consumer plans qualify).
 - **No Fable access** (e.g. API-key billing)? Use `/model opus` for the session and change `model: fable` → `model: opus` in the advisor file. Same pattern, model tiers shift down one.
+- **Grok lanes (the unconfigured default implementer, plus research and review):** the `grok-implementer`, `grok-researcher`, and `grok-reviewer` agents need the [xAI Grok CLI](https://x.ai/cli) installed and authenticated (install from [x.ai/cli](https://x.ai/cli), then `grok login`). They drive **Grok 4.5** headlessly (`grok --prompt-file … -m grok-4.5`). Without it each agent reports `STATUS: unavailable` — never a silent fallback to a Claude model.
 - **Codex lane:** the `codex-implementer` agent needs the [OpenAI Codex CLI](https://github.com/openai/codex) installed and authenticated (`npm i -g @openai/codex`, then `codex login`). It invokes **GPT-5.6 Sol** as `gpt-5.6-sol` with `model_reasoning_effort=high`. GPT-5.6 access may be limited during preview; without model access or an authenticated CLI, the agent reports `STATUS: unavailable` and the other lanes remain unaffected.
-- **Grok lanes:** the `grok-implementer`, `grok-researcher`, and `grok-reviewer` agents need the [xAI Grok CLI](https://x.ai/cli) installed and authenticated (install from [x.ai/cli](https://x.ai/cli), then `grok login`). They drive **Grok 4.5** headlessly (`grok --prompt-file … -m grok-4.5`). Without it each agent reports `STATUS: unavailable` — never a silent fallback to a Claude model.
 - Install at least the CLI for your chosen mode's lane (mix wants both); installing both keeps the cross-vendor fallback chain intact (a missing CLI just fails loudly and the chain moves on — a Claude Opus subagent is always the terminal fallback).
 - Heads-up: if a pinned Claude model isn't available on your account, Claude Code silently falls back to your session model — the pattern degrades quietly rather than erroring. If results feel unremarkable, check your plan. (This quiet fallback applies only to Claude model pins — the grok and codex lanes always fail loudly with a structured error.)
 
@@ -164,7 +164,7 @@ touching 3+ files, consult the fable-advisor agent and act on its verdict.
 
 **Why not race both CLI lanes on high-stakes work?** (Upstream recommends this; the fork removed it.) Racing pays twice for typing plus once more for the judging, and a plausible-looking wrong diff still needs review to catch. A single implementation plus genuinely independent cross-vendor review of the diff buys the same assurance cheaper — and review scales to any diff, raced or not.
 
-**How does this differ from upstream?** Upstream hardcodes grok as the default implementation lane and recommends racing lanes. This fork: implementation routing modes (codex-only by default, grok-only, or mix — the architect routes per task), no racing, a guaranteed Claude Opus terminal fallback with every substitution announced, a shipped process supervisor (`scripts/run-lane.sh`) so long runs survive the harness's 10-minute foreground cap, tiered review doctrine, and the `grok-researcher` / `grok-reviewer` agents.
+**How does this differ from upstream?** Upstream hardcodes grok as the default and recommends racing lanes for high-stakes work. This fork keeps the grok default but makes routing a declared mode (grok-only, codex-only, or mix — the architect routes per task), removes racing, guarantees a Claude Opus terminal fallback with every substitution announced, ships a process supervisor (`scripts/run-lane.sh`) so long runs survive the harness's 10-minute foreground cap, adds tiered review doctrine, and adds the `grok-researcher` / `grok-reviewer` agents.
 
 **Why Grok and GPT-5.6 Sol lanes in a Claude plugin?** Vendor diversity. Models from one family share blind spots; an independent implementation from a different lineage catches what same-family review misses — and with Claude as the architect, *every* diff now gets cross-vendor review for free. The architect stays Claude — the lanes are producers, not judges.
 
