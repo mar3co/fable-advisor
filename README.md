@@ -63,6 +63,12 @@ claude plugin marketplace add mar3co/fable-orchestrator
 claude plugin install fable-orchestrator@fable-orchestrator
 ```
 
+Then run the setup wizard — it detects your CLIs and any existing configuration, asks three questions (lane mode, user- or project-scope CLAUDE.md, always-on or not), writes the config lines idempotently, and offers to validate the lanes:
+
+```
+/fable-orchestrator:setup
+```
+
 Update later with `claude plugin marketplace update fable-orchestrator && claude plugin update fable-orchestrator@fable-orchestrator`. Then start your session as the architect:
 
 ```
@@ -77,7 +83,7 @@ bash scripts/doctor.sh
 
 ## Choose your implementation routing
 
-One line in any CLAUDE.md that applies to your session — grok is the default when nothing is declared:
+(`/fable-orchestrator:setup` writes this line for you — this section is the manual path.) One line in any CLAUDE.md that applies to your session — grok is the default when nothing is declared:
 
 ```
 fable-orchestrator: implementation lane = grok
@@ -93,13 +99,14 @@ The skill honors intent over exact syntax — "let the orchestrator pick the imp
 
 ## Make it always-on
 
-Add two lines to your `CLAUDE.md` (user-level for every project, or per-project) — a standing trigger plus your mode declaration. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
+(`/fable-orchestrator:setup` writes these lines for you — this section is the manual path.) Add two lines to your `CLAUDE.md` (user-level for every project, or per-project) — a standing trigger plus your mode declaration. The trigger is gated on the session model, so sessions on other models (e.g. Opus) skip the flow. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
 
 ```
-- Every session, without being reminded: non-trivial implementation runs the
-  fable-orchestrator architect-as-orchestrator flow — invoke the
-  fable-orchestrator:orchestration skill before delegating and follow it as
-  authoritative for routing, verification, review tiers, and advisor consults.
+- When the session model is Fable, without being reminded: non-trivial
+  implementation runs the fable-orchestrator architect-as-orchestrator flow —
+  invoke the fable-orchestrator:orchestration skill before delegating and
+  follow it as authoritative for routing, verification, review tiers, and
+  advisor consults.
 - fable-orchestrator: implementation lane = grok
 ```
 
