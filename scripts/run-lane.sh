@@ -5,7 +5,8 @@
 # hold their CLI in one long call. This script owns the fragile parts:
 #   start <lane> <spec-file> [secs] [model]        launch detached + watchdog,
 #     lane: codex | grok (implement) |             print PID/WATCHDOG/FINAL/LOG
-#           codex-review | grok-review (read-only)
+#           codex-review | grok-review |           (read-only lanes; secs
+#           grok-research                          defaults 600 vs 1800)
 #   wait <pid> [slice-secs]                        one bounded slice (default 240s),
 #                                                  prints EXITED or STILL-RUNNING
 #   reap <pid> [watchdog-pid]                      kill lane group + watchdog, cleanup
@@ -25,10 +26,13 @@ CMD=${1:-}
 
 case "$CMD" in
 start)
-  LANE=${1:?usage: run-lane.sh start codex|grok|codex-review|grok-review <spec-file> [secs] [model]}
+  LANE=${1:?usage: run-lane.sh start codex|grok|codex-review|grok-review|grok-research <spec-file> [secs] [model]}
   SPEC=${2:?missing spec file}
-  SECS=${3:-1800}
+  SECS=${3:-}
   MODEL=${4:-}
+  if [ -z "$SECS" ]; then
+    case "$LANE" in *-review|*-research) SECS=600 ;; *) SECS=1800 ;; esac
+  fi
   [ -r "$SPEC" ] || { echo "STATUS: unavailable"; echo "REASON: spec file not readable: $SPEC"; exit 1; }
   FINAL=$(mktemp -t "${LANE}-final.XXXXXX")
   LOG=$(mktemp -t "${LANE}-log.XXXXXX")
@@ -41,15 +45,15 @@ start)
         --sandbox "$SANDBOX" --skip-git-repo-check --cd "$(pwd)" \
         --output-last-message "$FINAL" - < "$SPEC" > "$LOG" 2>&1 &
       ;;
-    grok|grok-review)
+    grok|grok-review|grok-research)
       command -v grok >/dev/null 2>&1 || { echo "STATUS: unavailable"; echo "REASON: grok not on PATH"; exit 1; }
       PERM=""
-      [ "$LANE" = grok ] && PERM="--permission-mode acceptEdits"   # reviewers get no edit permission
+      [ "$LANE" = grok ] && PERM="--permission-mode acceptEdits"   # reviewers/researchers get no edit permission
       grok --prompt-file "$SPEC" -m "${MODEL:-grok-4.5}" $PERM \
         --output-format plain --cwd "$(pwd)" > "$FINAL" 2>&1 &
       LOG=$FINAL
       ;;
-    *) echo "STATUS: unavailable"; echo "REASON: unknown lane '$LANE' (codex|grok|codex-review|grok-review)"; exit 2 ;;
+    *) echo "STATUS: unavailable"; echo "REASON: unknown lane '$LANE' (codex|grok|codex-review|grok-review|grok-research)"; exit 2 ;;
   esac
   PID=$!
   (

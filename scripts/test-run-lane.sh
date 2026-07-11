@@ -11,13 +11,16 @@ pass() { printf '  ok   %s\n' "$1"; }
 fail() { printf '  FAIL %s\n' "$1"; FAILS=$((FAILS + 1)); }
 
 SHIM=$(mktemp -d)
-cat > "$SHIM/codex" << 'EOF'
+for CLI in codex grok; do
+cat > "$SHIM/$CLI" << EOF
 #!/usr/bin/env bash
-# fake codex: spawns a child worker, then runs as the parent
-sleep "${FAKE_CHILD:-300}" &
-sleep "${FAKE_PARENT:-300}"
+# fake $CLI: records argv, spawns a child worker, then runs as the parent
+printf '%s ' "\$@" > "$SHIM/last-args"
+sleep "\${FAKE_CHILD:-300}" &
+sleep "\${FAKE_PARENT:-300}"
 EOF
-chmod +x "$SHIM/codex"
+chmod +x "$SHIM/$CLI"
+done
 export PATH="$SHIM:$PATH"
 SPEC=$(mktemp -t test-spec.XXXXXX)
 echo test > "$SPEC"
@@ -34,6 +37,7 @@ group_alive() { pgrep -g "$1" >/dev/null 2>&1; }
 echo "test 1: reap kills the whole process group (orphan-child class)"
 launch 300 300 600
 sleep 1
+grep -q 'workspace-write' "$SHIM/last-args" && pass "codex lane invoked with workspace-write sandbox" || fail "codex lane args lack workspace-write"
 CHILD=$(pgrep -g "$PID" | grep -v "^$PID$" | head -1)
 [ -n "$CHILD" ] && pass "child worker present in group ($CHILD)" || fail "no child worker found in group"
 "$RL" reap "$PID" "$WD" >/dev/null
@@ -56,10 +60,21 @@ grep -q "WATCHDOG: killed" "$LOG" && pass "watchdog kill recorded in LOG" || fai
 
 echo "test 4: review lane type launches read-only and reaps"
 launch 2 2 600 codex-review
+sleep 1
+grep -q 'read-only' "$SHIM/last-args" && pass "codex-review invoked with read-only sandbox" || fail "codex-review args lack read-only"
 R=$("$RL" wait "$PID" 30)
 [ "$R" = EXITED ] && pass "codex-review lane ran and exited" || fail "codex-review wait printed '$R'"
 "$RL" reap "$PID" "$WD" >/dev/null
 group_alive "$PID" && fail "codex-review group survived reap" || pass "codex-review group reaped"
+
+echo "test 5: research lane gets no edit permission and reaps"
+launch 2 2 600 grok-research
+sleep 1
+grep -q 'acceptEdits' "$SHIM/last-args" && fail "grok-research args contain acceptEdits" || pass "grok-research invoked without acceptEdits"
+R=$("$RL" wait "$PID" 30)
+[ "$R" = EXITED ] && pass "grok-research lane ran and exited" || fail "grok-research wait printed '$R'"
+"$RL" reap "$PID" "$WD" >/dev/null
+group_alive "$PID" && fail "grok-research group survived reap" || pass "grok-research group reaped"
 
 printf '\n%s\n' "$([ "$FAILS" -eq 0 ] && echo "ALL PASS" || echo "$FAILS FAILURE(S)")"
 [ "$FAILS" -eq 0 ]

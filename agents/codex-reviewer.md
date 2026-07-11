@@ -63,7 +63,7 @@ RL="${CLAUDE_PLUGIN_ROOT}/scripts/run-lane.sh"
 
 Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values. Repeat `"$RL" wait <PID>` until it prints `EXITED`, then always `"$RL" reap <PID> <WATCHDOG>`. The `codex-review` lane runs `--sandbox read-only` — a reviewer never edits files, and gets no write access to try. If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed.
 
-4. **Distill.** Read `"$FINAL"` (per batch, if the size guard split the diff). Keep each finding as severity + one-line claim + `file:line`. A finding codex didn't anchor to a `file:line` gets labeled `uncited` — pass it through flagged, never silently promote or drop it. Check that each cited line actually exists in the diff; a citation that doesn't match is itself worth flagging.
+4. **Distill.** Read `"$FINAL"` (per batch, if the size guard split the diff). Keep each finding as severity + one-line claim + `file:line`. A finding codex didn't anchor to a `file:line` gets labeled `uncited` — pass it through flagged, never silently promote or drop it. Spot-check citations against the WORKING TREE (Read the cited line; citations are post-image, so they will usually not appear as literal numbers in the unified diff text — do not flag on that basis); a citation whose line doesn't exist or doesn't match the claim is itself worth flagging.
 
 ## What you return
 

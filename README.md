@@ -40,7 +40,7 @@ flowchart TD
     GREV -.->|"unavailable — announced"| OREV
     K -->|"commitment boundary:<br/>architecture, migration, API shape,<br/>two failed attempts"| ADV["fable-advisor<br/>Fable 5 · advises only"]
 
-    GROK --> VER["Architect verifies:<br/>reads the diff, re-runs the<br/>spec's verification command"]
+    GROK --> VER["Architect verifies:<br/>reads the diff, checks execution<br/>evidence (captured log or re-run)"]
     CODEX --> VER
     OPUS --> VER
 ```
@@ -108,7 +108,7 @@ The second line is optional if you want the grok default; set it to `codex` or `
 - **Claude Code ≥ 2.1.170** with a subscription that includes Fable 5 (Pro, Max, Team, or Enterprise — all current consumer plans qualify). No Fable access (e.g. API-key billing)? Use `/model opus` for the session and change `model: fable` → `model: opus` in the advisor file — same pattern, tiers shift down one.
 - **Grok lanes** (`grok-implementer`, `grok-researcher`, `grok-reviewer`): the [xAI Grok CLI](https://x.ai/cli), installed and authenticated (`grok login`). Drives **Grok 4.5** headlessly.
 - **Codex lanes** (`codex-implementer`, `codex-reviewer`): the [OpenAI Codex CLI](https://github.com/openai/codex) (`npm i -g @openai/codex`, then `codex login`). Invokes **GPT-5.6 Sol** at `model_reasoning_effort=high`; access may be limited during preview.
-- Install at least your chosen mode's CLI (mix wants both) — but full assurance wants both regardless of mode: your implementer's opposite family is your cold reviewer. With one CLI, implementation works normally and cold review falls back to an Opus cold pass, announced. A missing CLI always fails loudly with a structured error — never a silent substitution.
+- Install at least your chosen mode's CLI (mix wants both) — but full assurance wants both regardless of mode: your implementer's opposite family is your cold reviewer. With one CLI, implementation works normally and cold review falls back to an Opus cold pass, announced — note the degraded-path bill: under the grok default that means grok types and Opus reviews, with the review landing on your Anthropic quota. A missing CLI always fails loudly with a structured error — never a silent substitution.
 - Heads-up: if a pinned **Claude** model isn't available on your account, Claude Code silently falls back to your session model — that quiet degradation applies only to Claude model pins; the grok and codex lanes always fail loudly. If advisor verdicts feel unremarkable, check your plan.
 
 Model resolution order in Claude Code: `CLAUDE_CODE_SUBAGENT_MODEL` env var → per-invocation `model` parameter → agent frontmatter → session model.

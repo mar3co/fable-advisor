@@ -40,21 +40,16 @@ End with: "Cite a URL for every claim."]
 SPEC_EOF
 ```
 
-2. Invoke grok headlessly, read-only:
+2. Launch DETACHED via the plugin's supervisor — never in the foreground (the harness caps foreground tool calls at 10 minutes, and long web/X scans with a raised `TIMEOUT:` can exceed it):
 
 ```bash
-T=$(command -v gtimeout || command -v timeout || true)
-FINAL=$(mktemp -t grok-research.XXXXXX)
-SECS=600   # if the caller's prompt carries a "TIMEOUT: <seconds>" line, use that value instead
+RL="${CLAUDE_PLUGIN_ROOT}/scripts/run-lane.sh"
+[ -x "$RL" ] || RL=$(ls -d ~/.claude/plugins/cache/fable-orchestrator/fable-orchestrator/*/scripts/run-lane.sh 2>/dev/null | sort -V | tail -1)
 
-${T:+$T $SECS} grok --prompt-file "$SPEC" \
-  -m grok-4.5 \
-  --output-format plain \
-  --cwd "$(pwd)" \
-  > "$FINAL" 2>&1
+"$RL" start grok-research "$SPEC"   # 600s default; pass the caller's "TIMEOUT: <seconds>" value as the third argument if present
 ```
 
-No `--permission-mode acceptEdits` — this lane never edits files. On timeout, report `STATUS: timeout` with whatever landed.
+Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values. Repeat `"$RL" wait <PID>` until it prints `EXITED`, then always `"$RL" reap <PID> <WATCHDOG>`. The `grok-research` lane runs without `--permission-mode acceptEdits` — this lane never edits files. If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed.
 
 3. **Distill.** Read `"$FINAL"` and extract only what answers the question. Every claim keeps its URL; a claim grok didn't cite gets labeled `uncited` — do not launder it into a fact.
 

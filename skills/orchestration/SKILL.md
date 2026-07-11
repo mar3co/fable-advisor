@@ -74,7 +74,7 @@ Implementers share none of your conversation context. Every delegation prompt ca
 2. **Files** — exact paths to create or modify
 3. **Interfaces** — signatures, types, or API shapes the code must match
 4. **Constraints** — project conventions, things not to touch
-5. **Verification** — the command(s) that prove it works: the smallest bundle that exercises the change, not the full suite (full suites run at integration points, and verification may legitimately run twice — producer, then wrapper — so its cost matters)
+5. **Verification** — the command(s) that prove it works: the smallest bundle that exercises the change, not the full suite (full suites run at integration points; the command may legitimately run twice — once in the producer's dev loop, once at wrapper acceptance when the captured log is inconclusive — so its cost matters)
 
 Estimate the task's wall clock honestly in every spec and include a `TIMEOUT: <seconds>` line whenever the estimate differs meaningfully from the implementation lanes' 1800-second default (the research/review lanes default to 600). An undersized budget kills a legitimate run mid-flight; an oversized one delays detection of a genuinely hung lane — accuracy beats generosity in both directions.
 
@@ -82,7 +82,7 @@ A spec you can't finish writing is a signal the decision isn't made yet — that
 
 ## Parallelism
 
-Independent specs (no shared files, no ordering dependency) launch as parallel agents in a single message. Sequential chains and single-file surgery stay serial. One writer per module or package; schema and migration work is always serial — "no shared files" is necessary but not sufficient, because adjacent files, generated code, and lockfiles collide too.
+Independent specs (no shared files, no ordering dependency) launch as parallel agents in a single message. Sequential chains and single-file surgery stay serial. One writer per module or package; schema and migration work is always serial — "no shared files" is necessary but not sufficient, because adjacent files, generated code, and lockfiles collide too. For heavy fan-out where parallel implementers must touch adjacent areas anyway, isolate each lane in its own git worktree (the Agent tool supports `isolation: "worktree"`) and merge serially, verifying after each merge rather than only per lane.
 
 Past roughly four parallel lanes, raw agent calls stop scaling — every report lands in the architect's context. Where the harness's Workflow tool is available, propose orchestrating the fan-out through it instead: lane transcripts never enter the architect's context and the control flow is deterministic. It requires the user's explicit opt-in — ask, don't assume.
 
@@ -101,6 +101,7 @@ Pass it the decision, the constraints, the options considered, the exact file pa
 Verification (below) is not review. Verification asks "did it do what the spec said, and do the checks pass?" Cold review asks "what is wrong that the author — and the architect's own framing — didn't see?" The architect reading a lane's diff is verification with cross-vendor eyes, not cold review: the architect wrote the spec and is primed by it. Tier by the diff:
 
 - **Mechanical diffs** (renames, literal moves, no behavior change): verification only.
+- **Declared spikes** (the caller explicitly marks the task throwaway/prototype, not headed to main): verification only, with the spike status restated in the report. A spike is DECLARED by the caller, never inferred — silently downgrading real work to spike treatment under pressure is exactly the failure this named tier exists to prevent.
 - **Behavior-bearing diffs**: add one cold review pass — diff only, no intent framing — from a model family DIFFERENT from the implementer's: grok implemented → `codex-reviewer`; codex implemented → `grok-reviewer`; a Claude fallback lane implemented → either. A reviewer from the author's own family shares the author's blind spots and is not a second lens. If the opposite-family CLI reviewer is unavailable, the cold pass falls back to the strongest Claude model available (Agent tool, `model: "opus"`, diff-only and cold — Claude is a third family versus both CLI implementers), announced like every substitution. Review is never silently skipped and never silently same-family.
 - **Security / auth / concurrency / migration paths**: additionally have a strong Claude model read every error / nil / empty / timeout branch for silent failure (a read-only session pass or an Opus subagent). Omission-type misses never appear in any reviewer's report, so this tier is about completeness, not a second opinion.
 
@@ -108,7 +109,7 @@ If in doubt whether a diff is mechanical, it isn't.
 
 Reviewer findings are claims, not verdicts — the architect runs the **refutation pass** before acting. For each finding: read the cited `file:line` against the actual code and try to refute it. Refuted → drop it, with a one-line reason. Confirmed → a corrected spec goes back to the implementation lane, never a hand-fix. Cold lenses trade precision for recall, so false positives are expected — each costs one refutation, while every unique true positive is pure gain. On security-tier diffs, also refute the *clean* report: "no findings" is itself a claim, so spot-check the diff's riskiest branch yourself before accepting it — the unchallenged "it's fine" is where bugs hide.
 
-Refute in severity order — the wrapper has already prefiltered citations, so the queue is real work, but the top of it decides ship/no-ship. And bound the loop: after two respec → re-implement → re-review rounds on the same diff, stop and surface the residual findings to the user with your recommendation instead of thrashing.
+Refute in severity order — the wrapper has flagged citation problems (`UNCITED`), not pre-cleared them: refute cited findings first, and take `UNCITED` items last as cheap skims rather than full refutations. The top of the queue decides ship/no-ship. And bound the loop: after two respec → re-implement → re-review rounds on the same diff, stop and surface the residual findings to the user with your recommendation instead of thrashing.
 
 ## Verification
 

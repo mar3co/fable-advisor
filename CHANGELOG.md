@@ -2,6 +2,17 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.5.0 — 2026-07-11
+
+Partly adopted from a fourth external Grok 4.5 review.
+
+- **Citation spot-check fixed**: reviewers now verify citations against the WORKING TREE, not "exists in the diff" — post-image line numbers usually don't appear as literals in unified diff text, so the old instruction false-flagged good citations.
+- **Refutation queue honesty**: the wrapper *flags* citation problems, it doesn't pre-clear them — the skill now says so, and the architect refutes cited findings first, taking `UNCITED` items last as cheap skims. (A hard prefilter that drops uncited findings was rejected: it would violate the reviewers' no-silent-drop rule.)
+- **`grok-researcher` on the supervisor**: new `grok-research` lane alias (read-only, 600s default); long scans with a raised `TIMEOUT:` no longer die at the harness's 10-minute foreground wall. `run-lane.sh` now defaults the budget by lane type (600s review/research, 1800s implement).
+- **Declared spikes**: a named verification-only tier for caller-declared throwaway/prototype work — declared, never inferred, restated in the report. An honest escape valve beats silent self-downgrade under pressure.
+- **Smoke test asserts permissions**: the fake CLIs record argv; tests now lock `workspace-write` for codex implement, `read-only` for codex-review, and no `acceptEdits` for grok-research (five tests, all green).
+- Copy fixes: grok-reviewer's body rationale now matches the vs-implementer invariant (was vs-architect); the flowchart's verify node reflects conditional verification; "runs twice" and "one authoritative run" reconciled (producer dev loop + wrapper acceptance when the log is inconclusive); Requirements state the degraded one-CLI bill (grok types, Opus reviews, on Anthropic quota); Parallelism adds worktree isolation with serial merges for heavy fan-out.
+
 ## 1.4.0 — 2026-07-11
 
 Partly adopted from a third external Grok 4.5 review.
