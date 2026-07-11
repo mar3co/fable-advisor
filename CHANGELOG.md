@@ -2,6 +2,13 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.8.0 — 2026-07-11
+
+- **`/fable-orchestrator:setup`**: interactive post-install wizard — detects installed CLIs and existing configuration, asks lane mode (grok/codex/mix, every option annotated with CLI status, none hidden), scope (user or project CLAUDE.md), and always-on; writes the two config lines idempotently (replaces an existing lane line in place, never duplicates the trigger, honest "no changes needed" on a no-op re-run); offers a doctor run at the end. Detect-and-warn only: it never installs CLIs, never touches settings.json, and writes to nothing but the one chosen CLAUDE.md.
+- **Fable-gated always-on trigger**: the canonical trigger line (written by setup, documented in the README) now begins "When the session model is Fable" — sessions on other models skip the flow instead of running an architect pattern their model wasn't chosen for. Setup detects a pre-existing unconditional trigger and offers to upgrade it in place.
+- **`/fable-orchestrator:doctor`**: slash-command wrapper for `scripts/doctor.sh` — plugin installs get lane validation without hunting down the script's cache path (`${CLAUDE_PLUGIN_ROOT}` resolves it). The README points here first, and setup's skip note references it. The README's update instructions also moved into their own section.
+- **README restructuring**: "Make it always-on" now shows only the gated trigger (the lane line was a duplicate of "Choose your implementation routing", which it now points to), and a new "Without always-on (per-task trigger)" subsection under "Use it" documents invoking the flow manually.
+
 ## 1.7.0 — 2026-07-11
 
 Adopted from field use (#1).

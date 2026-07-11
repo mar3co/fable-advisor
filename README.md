@@ -63,26 +63,43 @@ claude plugin marketplace add mar3co/fable-orchestrator
 claude plugin install fable-orchestrator@fable-orchestrator
 ```
 
-Update later with `claude plugin marketplace update fable-orchestrator && claude plugin update fable-orchestrator@fable-orchestrator`. Then start your session as the architect:
+Then run the setup wizard — it detects your CLIs and any existing configuration, asks three questions (lane mode, user- or project-scope CLAUDE.md, always-on or not), writes the config lines idempotently, and offers to validate the lanes:
+
+```
+/fable-orchestrator:setup
+```
+
+Then start your session as the architect:
 
 ```
 /model fable
 ```
 
-Verify the lanes before a task needs them — checks both CLIs (presence, auth, model access via one tiny live call each) and prints exactly which plugin and version you're running:
+Verify the lanes before a task needs them — checks presence of both CLIs (a missing one is a warning, not a failure), auth and model access via one tiny live call per installed CLI, and prints exactly which plugin and version you're running. The setup wizard already offers this check as its final step:
 
 ```
-bash scripts/doctor.sh
+/fable-orchestrator:doctor
+```
+
+(From a repo checkout you can also run the script directly: `bash scripts/doctor.sh`.)
+
+## Update
+
+Pull the latest release — first refresh the marketplace, then update the plugin:
+
+```
+claude plugin marketplace update fable-orchestrator
+claude plugin update fable-orchestrator@fable-orchestrator
 ```
 
 ## Choose your implementation routing
 
-One line in any CLAUDE.md that applies to your session — grok is the default when nothing is declared:
+(`/fable-orchestrator:setup` writes this line for you — this section is the manual path.) Choose one line for any CLAUDE.md that applies to your session — grok is the default when nothing is declared:
 
 ```
-fable-orchestrator: implementation lane = grok
-fable-orchestrator: implementation lane = codex
-fable-orchestrator: implementation lane = mix
+- fable-orchestrator: implementation lane = grok
+- fable-orchestrator: implementation lane = codex
+- fable-orchestrator: implementation lane = mix
 ```
 
 - **grok** — everything goes to Grok 4.5. Cheap typing when your specs are strong, with assurance from verification and the review tiers.
@@ -93,17 +110,17 @@ The skill honors intent over exact syntax — "let the orchestrator pick the imp
 
 ## Make it always-on
 
-Add two lines to your `CLAUDE.md` (user-level for every project, or per-project) — a standing trigger plus your mode declaration. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
+(`/fable-orchestrator:setup` writes this for you — this section is the manual path.) Add one standing trigger line to your `CLAUDE.md` (user-level for every project, or per-project). It's gated on the session model, so sessions on other models (e.g. Opus) skip the flow. Pair it with your lane line from "Choose your implementation routing" above unless you want the grok default. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
 
 ```
-- Every session, without being reminded: non-trivial implementation runs the
-  fable-orchestrator architect-as-orchestrator flow — invoke the
-  fable-orchestrator:orchestration skill before delegating and follow it as
-  authoritative for routing, verification, review tiers, and advisor consults.
-- fable-orchestrator: implementation lane = grok
+- When the session model is Fable, without being reminded: non-trivial
+  implementation runs the fable-orchestrator architect-as-orchestrator flow —
+  invoke the fable-orchestrator:orchestration skill before delegating and
+  follow it as authoritative for routing, verification, review tiers, and
+  advisor consults.
 ```
 
-The second line is optional if you want the grok default; set it to `codex` or `mix` to choose otherwise.
+Prefer to keep it manual instead? See "Use it" below — the flow triggers per task just as well.
 
 ## Requirements
 
@@ -135,6 +152,10 @@ implementation, and verify the evidence before you call it done.
 ```
 
 The architect writes the five-part spec (objective, files, interfaces, constraints, verification — plus an honest `TIMEOUT:` estimate for long tasks), routes it per your mode, reads the diff and verification evidence when the report comes back, sends behavior-bearing diffs to the opposite-family cold reviewer, and only then reports done.
+
+### Without always-on (per-task trigger)
+
+Skipped the always-on trigger? Invoke the flow per task instead — type `/fable-orchestrator:orchestration` followed by your request, or just say so in plain words ("use the fable-orchestrator flow for this"). Routing, verification, and review work identically; the always-on line only saves you the invocation.
 
 ## Commitment boundaries
 
