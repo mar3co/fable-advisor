@@ -2,6 +2,17 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.9.0 — 2026-07-12
+
+Adopted from field use (#4, #5).
+
+- **Lane wrappers may never end their turn with the CLI alive** (#4, the dangerous mode): all five supervisor-using agents now run every `wait` slice as an explicit FOREGROUND command — backgrounding the wait and "waiting for a notification" is banned by name, because no notification re-wakes a finished agent while the detached CLI keeps editing, committing, or pushing an apparently-settled branch. If a wrapper's turn must end mid-run, it reaps first and reports `partial` honestly.
+- **Reap evidence in the report**: `run-lane.sh reap` now confirms the process group is actually dead (`(group dead)` vs a loud `WARNING: group still alive` with exit 1), and both implementer reports gain a required `PROCESS:` field carrying that pasted output — a report without liveness evidence is visibly malformed. Smoke test asserts the confirmation. (Read-only lanes get the foreground rule but not the field: a surviving reviewer can't mutate the tree.)
+- **Architect-side backstop** in the skill and README: a lane completion without a structured report is an error state, not a success — check `git status`/`git log`, `pgrep` for surviving lane processes, group-kill them, and re-run any verification performed while a detached process was alive. Checklist item 3 now points here (still seven items — an amendment, not growth).
+- **Wrapper reuse bounded**: SendMessage continuation of a lane wrapper is for follow-ups on the same task only, never a long-lived pipe across many tasks — field data shows end-of-task discipline degrading past a couple hundred thousand transcript tokens while judgment still looks fine. Fresh wrapper per task.
+- **Early-death retry legalized** (#4 mode A): a CLI that dies within the first minute leaving no diff gets one relaunch with the identical spec, noted in the report; a second early death reports `unavailable` with the evidence. The one-invocation rule states the exception.
+- **Grok auth preflight retries once** (#5): a not-authenticated result from `grok models` can be a transient token-refresh race, so all three grok agents retry the check once after ~5s before failing the lane; only a persistent failure reports unavailable, with wording that no longer asserts ``run `grok login` `` as a certain diagnosis. CLI-not-installed stays an immediate no-retry fail. `doctor.sh` grants its grok live check the same single retry.
+
 ## 1.8.0 — 2026-07-11
 
 - **`/fable-orchestrator:setup`**: interactive post-install wizard — detects installed CLIs and existing configuration, asks lane mode (grok/codex/mix, every option annotated with CLI status, none hidden), scope (user or project CLAUDE.md), and always-on; writes the two config lines idempotently (replaces an existing lane line in place, never duplicates the trigger, honest "no changes needed" on a no-op re-run); offers a doctor run at the end. Detect-and-warn only: it never installs CLIs, never touches settings.json, and writes to nothing but the one chosen CLAUDE.md.

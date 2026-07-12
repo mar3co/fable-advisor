@@ -17,12 +17,12 @@ First action, always:
 command -v grok && grok --version && grok models 2>&1 | head -2
 ```
 
-If grok is not installed or not authenticated, **stop immediately** and return:
+If grok is not installed (`command -v` fails), that is durable — **stop immediately**. A not-authenticated result can be a transient token-refresh race, not a real logged-out state, so retry the auth check exactly once (`sleep 5; grok models 2>&1 | head -2`) before giving up. If the retry also says not authenticated, stop and return:
 
 ```
 GROK REVIEW REPORT
 STATUS: unavailable
-REASON: [grok not found on PATH — install via https://x.ai/cli | auth error — run `grok login`]
+REASON: [grok not found on PATH — install via https://x.ai/cli | not authenticated after one retry — possibly a transient token refresh; if it persists, run `grok login`]
 ```
 
 You never review the diff yourself as a fallback — a cold lens that quietly becomes a same-family lens defeats the purpose.
@@ -61,7 +61,7 @@ RL="${CLAUDE_PLUGIN_ROOT}/scripts/run-lane.sh"
 "$RL" start grok-review "$SPEC" 600   # use the caller's "TIMEOUT: <seconds>" value instead, if present
 ```
 
-Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values. Repeat `"$RL" wait <PID>` until it prints `EXITED`, then always `"$RL" reap <PID> <WATCHDOG>`. The `grok-review` lane runs without `--permission-mode acceptEdits` — a reviewer never edits files. If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed.
+Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values. Repeat `"$RL" wait <PID>` until it prints `EXITED` — every slice as a normal FOREGROUND command, never backgrounded, never a "wait for a notification" you end your turn on (no notification re-wakes a finished agent; a detached CLI would keep running unsupervised). Then always `"$RL" reap <PID> <WATCHDOG>`. If your turn must instead end early while grok may still be running, reap first and report `STATUS: partial` with whatever landed. The `grok-review` lane runs without `--permission-mode acceptEdits` — a reviewer never edits files. If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed.
 
 4. **Distill.** Read `"$FINAL"` (per batch, if the size guard split the diff). Keep each finding as severity + one-line claim + `file:line`. A finding grok didn't anchor to a `file:line` gets labeled `uncited` — pass it through flagged, never silently promote or drop it. Spot-check citations against the WORKING TREE (Read the cited line; citations are post-image, so they will usually not appear as literal numbers in the unified diff text — do not flag on that basis); a citation whose line doesn't exist or doesn't match the claim is itself worth flagging.
 

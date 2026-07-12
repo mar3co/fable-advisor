@@ -45,11 +45,14 @@ else
   ok "CLI present: $(grok --version 2>/dev/null | head -1)"
   SPEC=$(mktemp -t doctor-grok.XXXXXX)
   printf 'Reply with exactly: LANE-OK' > "$SPEC"
-  if ${T:+$T 180} grok --prompt-file "$SPEC" -m grok-4.5 \
-       --output-format plain --cwd "$(pwd)" 2>/dev/null | grep -q 'LANE-OK'; then
+  grok_live() { ${T:+$T 180} grok --prompt-file "$SPEC" -m grok-4.5 \
+                  --output-format plain --cwd "$(pwd)" 2>/dev/null | grep -q 'LANE-OK'; }
+  if grok_live; then
     ok "auth + grok-4.5 access confirmed"
+  elif sleep 5 && grok_live; then
+    ok "auth + grok-4.5 access confirmed (first attempt failed — likely transient, e.g. a token refresh)"
   else
-    bad "live check failed (auth or model access) — try: grok login"
+    bad "live check failed twice (auth or model access) — try: grok login"
   fi
 fi
 

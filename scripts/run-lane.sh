@@ -91,7 +91,12 @@ reap)
   [ -n "$WATCHDOG" ] && kill -- "-$WATCHDOG" 2>/dev/null
   sleep 2
   kill -9 -- "-$PID" 2>/dev/null
-  echo "REAPED: $PID"
+  sleep 1
+  if kill -0 -- "-$PID" 2>/dev/null; then
+    echo "REAPED: $PID (WARNING: group still alive)"
+    exit 1
+  fi
+  echo "REAPED: $PID (group dead)"
   ;;
 *)
   echo "usage: run-lane.sh start|wait|reap ..." >&2

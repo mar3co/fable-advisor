@@ -40,8 +40,9 @@ sleep 1
 grep -q 'workspace-write' "$SHIM/last-args" && pass "codex lane invoked with workspace-write sandbox" || fail "codex lane args lack workspace-write"
 CHILD=$(pgrep -g "$PID" | grep -v "^$PID$" | head -1)
 [ -n "$CHILD" ] && pass "child worker present in group ($CHILD)" || fail "no child worker found in group"
-"$RL" reap "$PID" "$WD" >/dev/null
+ROUT=$("$RL" reap "$PID" "$WD")
 if group_alive "$PID"; then fail "group survived reap (orphans left)"; else pass "parent and child both dead after reap"; fi
+grep -q "REAPED: $PID (group dead)" <<< "$ROUT" && pass "reap confirmed group death in its output" || fail "reap output lacks group-death confirmation: '$ROUT'"
 
 echo "test 2: natural exit is detected and the watchdog self-terminates"
 launch 2 2 600
