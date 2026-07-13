@@ -33,13 +33,11 @@ The caller sends a REF — a commit SHA, a base branch, or "uncommitted" — and
 
 ## How you run codex
 
-1. Pin down exactly what will be reviewed, from the ref — this is your report's identity for the review, and your check that the ref is real:
+1. Pin down exactly what will be reviewed — this is your report's identity for the review, and your check that the ref is real. Run ONLY your mode's command (the "uncommitted" sentinel is not a git ref — never `rev-parse` it):
 
-```bash
-SHA=$(git rev-parse --verify "$REF")     # commit mode — identity: the full SHA; shape: git show "$SHA" --stat
-BASE=$(git merge-base "$REF" HEAD)       # base mode — identity: <base-sha>..<head-sha>; shape: git diff "$BASE"..HEAD --stat
-git diff HEAD --stat | tail -1           # uncommitted mode (no ref, nothing immutable): staged + unstaged; untracked files appear in no diff — list any in UNCOVERED
-```
+   - **commit mode**: `SHA=$(git rev-parse --verify "$REF")` — identity: the full SHA; shape: `git show "$SHA" --stat`.
+   - **base mode**: `BASE=$(git merge-base "$REF" HEAD)` — identity: `<base-sha>..<head-sha>`; shape: `git diff "$BASE"..HEAD --stat`.
+   - **uncommitted mode**: no ref exists and nothing is immutable — identity: `HEAD (uncommitted working tree)`; shape: `git diff HEAD --stat` (staged + unstaged; untracked files appear in no diff — list any in `UNCOVERED`).
 
 2. **Diff-size guard.** Pipe the mode's diff command to `wc -l` (`git show "$SHA"` for commit mode; `git diff "$BASE"..HEAD` for base mode; `git diff HEAD` for uncommitted — `git diff <sha>` alone is working-tree-vs-commit, the wrong bytes) before launching. Over ~1,500 lines, do NOT review it whole — review quality collapses silently past that point. Run one codex invocation per batch of files, restricting each via the instructions ("Confine this review to these files: …"), merging the findings. If a single file alone exceeds the limit, cover its most behavior-dense portions and list the rest in `UNCOVERED`. Never silently truncate.
 
