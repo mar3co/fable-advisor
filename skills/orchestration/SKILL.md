@@ -96,6 +96,8 @@ A spec you can't finish writing is a signal the decision isn't made yet — that
 
 Independent specs (no shared files, no ordering dependency) launch as parallel agents in a single message. Sequential chains and single-file surgery stay serial. One writer per module or package; schema and migration work is always serial — "no shared files" is necessary but not sufficient, because adjacent files, generated code, and lockfiles collide too. For heavy fan-out where parallel implementers must touch adjacent areas anyway, isolate each lane in its own git worktree (the Agent tool supports `isolation: "worktree"`) and merge serially, verifying after each merge rather than only per lane.
 
+Worktree lanes start from a clean checkout: gitignored per-machine config (`local.properties`, `.env`, keystore files, …) does not follow into the new worktree, so every lane's first verification fails on missing machine config unless the spec provisions it. Either have the spec copy the needed file(s) from the parent checkout (kept unstaged), or expect the first verify to fail and rely on the implementer docs' recovery recipe — one line in the spec is cheaper than a failed build per lane.
+
 Past roughly four parallel lanes, raw agent calls stop scaling — every report lands in the architect's context. Where the harness's Workflow tool is available, propose orchestrating the fan-out through it instead: lane transcripts never enter the architect's context and the control flow is deterministic. It requires the user's explicit opt-in — ask, don't assume.
 
 ## Waiting on lanes — background by default
