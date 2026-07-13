@@ -71,12 +71,45 @@ else
   printf 'Reply with exactly: LANE-OK' > "$SPEC"
   grok_live() { ${T:+$T 180} grok --prompt-file "$SPEC" -m grok-4.5 \
                   --output-format plain --cwd "$(pwd)" 2>/dev/null | grep -q 'LANE-OK'; }
+  GROK_LIVE_OK=0
   if grok_live; then
-    ok "auth + grok-4.5 access confirmed"
+    ok "auth + grok-4.5 access confirmed"; GROK_LIVE_OK=1
   elif sleep 5 && grok_live; then
-    ok "auth + grok-4.5 access confirmed (first attempt failed — likely transient, e.g. a token refresh)"
+    ok "auth + grok-4.5 access confirmed (first attempt failed — likely transient, e.g. a token refresh)"; GROK_LIVE_OK=1
   else
     bad "live check failed twice (auth or model access) — try: grok login"
+  fi
+  if [ "$GROK_LIVE_OK" = 1 ]; then
+    # Permission canary. A trivial LANE-OK prompt only exercises solo simple
+    # commands; grok 0.2.99's headless permission resolver auto-cancels shell
+    # commands it cannot statically classify (loops, $VAR expansion, export
+    # prefixes), which kills the run at its first real verification command.
+    # Force the trigger shape under the implement lane's exact production
+    # flags, so doctor fails when real tasks would. The pass condition is a
+    # NONCE the command reads from a file the model never sees the contents
+    # of — a model that replies without executing cannot produce it, so a
+    # pass is proof of headless execution, not a self-reported claim.
+    NONCE="cn-$$-$RANDOM$RANDOM"
+    NFILE=$(mktemp -t doctor-grok-nonce.XXXXXX)
+    printf '%s\n' "$NONCE" > "$NFILE"
+    CSPEC=$(mktemp -t doctor-grok-canary.XXXXXX)
+    cat > "$CSPEC" <<CANARY_EOF
+Run exactly this command in the terminal, as a single tool call, without modifying it:
+
+for f in $NFILE; do cat "\$f"; done
+
+Then reply with the exact line the command printed. If the command was blocked, cancelled, or failed, reply BLOCKED plus the error text.
+CANARY_EOF
+    grok_canary() { ${T:+$T 180} grok --prompt-file "$CSPEC" -m grok-4.5 \
+                      --output-format plain --cwd "$(pwd)" \
+                      --permission-mode bypassPermissions \
+                      --deny 'Bash(sudo*)' --deny 'Bash(git push*)' \
+                      --deny 'Bash(curl*)' --deny 'Bash(wget*)' 2>/dev/null | grep -q "$NONCE"; }
+    if grok_canary || grok_canary; then    # one retry for model non-compliance; a pass needs the nonce, which only real execution can produce
+      ok "implement-lane permission canary passed (loop/\$VAR command ran headlessly, nonce proven)"
+    else
+      bad "permission canary failed twice — the grok CLI likely cancelled the command (headless permission bug class, known on 0.2.99); real implementation tasks will die at their first verification command. Evidence: grep the newest events.jsonl under ~/.grok/sessions/ for permission_cancelled"
+    fi
   fi
 fi
 

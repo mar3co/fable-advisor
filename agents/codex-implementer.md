@@ -71,6 +71,8 @@ git status --porcelain   # pre-existing uncommitted paths, if any — record the
 
 If the tree is already dirty at launch, note which paths: a backstop commit stages only the task's files, and pre-existing dirt gets reported in `GAPS`, never absorbed into the lane's commit.
 
+If this lane runs in a fresh worktree (`isolation: "worktree"`), gitignored per-machine config — `local.properties`, `.env`, `keystore.properties`, and the like — did not follow from the parent checkout, so a first verification run can fail on missing machine config rather than on the change. The recovery is deterministic: copy the file from the parent checkout, confirm git ignores it (`git check-ignore <file>`), never stage it, and note the copy in `GAPS`.
+
 2. Launch codex DETACHED via the supervisor — never in the foreground. This matters: the harness caps any single foreground tool call at 10 minutes; a foreground launch kills the lane's supervision mid-run on long tasks while codex keeps working as an orphan. The supervisor's pure-bash watchdog wraps the detached process, so the wall clock holds even if this agent dies, with no coreutils dependency:
 
 ```bash

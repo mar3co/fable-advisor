@@ -21,10 +21,18 @@
 # the repo at this script's working directory, so invoke run-lane.sh from
 # the repo under review.
 #
+# Each CLI runs inside a backgrounded subshell that appends "EXIT: <code>" to
+# LOG when the CLI exits on its own — so consumers can tell a crash from a
+# clean exit after the fact. No EXIT line means the group was killed
+# (watchdog or reap) before the CLI returned. Note the marker's limit: a
+# grok run that dies on the CLI's internal permission cancellation still
+# exits 0 (see the grok lane comment below).
+#
 # Process-group discipline: `set -m` gives each background job its own process
-# group (PGID = PID), and every kill targets the GROUP (`kill -- -PID`) — the
-# CLIs spawn child workers, and killing only the parent leaves orphans still
-# writing to the tree. The watchdog is pure bash (no coreutils), polls so it
+# group (PGID = PID — with the subshell wrapper, PID is the subshell, which
+# leads the group the CLI runs in), and every kill targets the GROUP
+# (`kill -- -PID`) — the CLIs spawn child workers, and killing only the
+# parent leaves orphans still writing to the tree. The watchdog is pure bash (no coreutils), polls so it
 # self-terminates when the lane exits naturally (a stale full-budget sleep
 # could group-kill a recycled PID), and survives the calling agent, so the
 # wall clock holds even if the lane dies.
@@ -51,9 +59,10 @@ start)
       command -v codex >/dev/null 2>&1 || { echo "STATUS: unavailable"; echo "REASON: codex not on PATH"; exit 1; }
       FAST=""   # LANE_CODEX_FAST=1 opts into the fast service tier (~1.5x speed, ~2-2.5x credits; needs ChatGPT sign-in)
       [ "${LANE_CODEX_FAST:-}" = "1" ] && FAST="-c service_tier=fast -c features.fast_mode=true"
-      codex exec --model "${MODEL:-gpt-5.6-sol}" -c model_reasoning_effort=high $FAST \
-        --sandbox workspace-write --skip-git-repo-check --cd "$(pwd)" \
-        --output-last-message "$FINAL" - < "$SPEC" > "$LOG" 2>&1 &
+      ( codex exec --model "${MODEL:-gpt-5.6-sol}" -c model_reasoning_effort=high $FAST \
+          --sandbox workspace-write --skip-git-repo-check --cd "$(pwd)" \
+          --output-last-message "$FINAL" - < "$SPEC" > "$LOG" 2>&1
+        echo "EXIT: $?" >> "$LOG" ) >/dev/null 2>&1 &
       ;;
     codex-review)
       command -v codex >/dev/null 2>&1 || { echo "STATUS: unavailable"; echo "REASON: codex not on PATH"; exit 1; }
@@ -64,29 +73,39 @@ start)
       # the documented config key (the subcommand has no --sandbox flag;
       # key honored on codex-cli 0.144.1 — an unknown -c key would be
       # silently dropped, so re-verify on CLI upgrades); --json makes LOG a
-      # JSONL event stream — plus one plain-text "WATCHDOG: killed …" line
-      # if the watchdog fires, so consumers grep for markers rather than
-      # strictly parse. Instructions arrive on stdin
+      # JSONL event stream — plus plain-text marker lines ("WATCHDOG: killed …"
+      # if the watchdog fires, "EXIT: <code>" on natural exit), so consumers
+      # grep for markers rather than strictly parse. Instructions arrive on stdin
       # via the positional '-' PROMPT. Custom instructions are mutually
       # exclusive with the subcommand's --commit/--base target flags
       # (verified on 0.144.1), which is why the target ref lives in the
       # instruction text instead.
-      codex exec review --model "${MODEL:-gpt-5.6-sol}" -c model_reasoning_effort=high $FAST \
-        -c 'sandbox_mode="read-only"' --json \
-        --output-last-message "$FINAL" - < "$SPEC" > "$LOG" 2>&1 &
+      ( codex exec review --model "${MODEL:-gpt-5.6-sol}" -c model_reasoning_effort=high $FAST \
+          -c 'sandbox_mode="read-only"' --json \
+          --output-last-message "$FINAL" - < "$SPEC" > "$LOG" 2>&1
+        echo "EXIT: $?" >> "$LOG" ) >/dev/null 2>&1 &
       ;;
     grok|grok-review|grok-research)
       command -v grok >/dev/null 2>&1 || { echo "STATUS: unavailable"; echo "REASON: grok not on PATH"; exit 1; }
       GARGS=(--prompt-file "$SPEC" -m "${MODEL:-grok-4.5}" --output-format plain --cwd "$(pwd)")
       case "$LANE" in
         grok)
-          # acceptEdits is kept for forward-compat but is NOT enforcement on
-          # current CLIs (verified on 0.2.99: headless runs execute commands
-          # regardless of it). The deny rules below ARE enforced: no privilege
-          # escalation, no pushing, no ad-hoc network from an implementation
-          # lane. This is a deny-list, not confinement — grok's kernel sandbox
-          # does not restrict child processes on macOS today.
-          GARGS+=(--permission-mode acceptEdits
+          # bypassPermissions is REQUIRED for headless reliability, not a
+          # convenience: grok 0.2.99's permission resolver auto-CANCELS any
+          # run_terminal_command whose command string it cannot statically
+          # classify (for/while loops, $VAR expansion, export prefixes — the
+          # exact boundary is version-dependent), and one cancellation kills
+          # the whole single-turn run with exit 0 and a narration-only FINAL.
+          # Verified live on 0.2.99: every other mode (acceptEdits, dontAsk,
+          # auto) and even --always-approve still cancels, and --allow rules
+          # never match unclassifiable commands. The deny rules below ARE
+          # enforced under bypassPermissions (verified: a denied command
+          # returns a policy error to the model and the run continues): no
+          # privilege escalation, no pushing, no ad-hoc network from an
+          # implementation lane. This is a deny-list, not confinement —
+          # grok's kernel sandbox does not restrict child processes on macOS
+          # today.
+          GARGS+=(--permission-mode bypassPermissions
                   --deny 'Bash(sudo*)' --deny 'Bash(git push*)'
                   --deny 'Bash(curl*)' --deny 'Bash(wget*)') ;;
         grok-review)
@@ -104,7 +123,8 @@ start)
           GARGS+=(--tools 'web_search,open_page,open_page_with_find,x_user_search,x_semantic_search,x_keyword_search,x_thread_fetch,read_file,list_dir,grep'
                   --disallowed-tools 'use_tool,search_tool') ;;
       esac
-      grok "${GARGS[@]}" > "$FINAL" 2>&1 &
+      ( grok "${GARGS[@]}" > "$FINAL" 2>&1
+        echo "EXIT: $?" >> "$FINAL" ) >/dev/null 2>&1 &
       LOG=$FINAL
       ;;
     *) echo "STATUS: unavailable"; echo "REASON: unknown lane '$LANE' (codex|grok|codex-review|grok-review|grok-research)"; exit 2 ;;

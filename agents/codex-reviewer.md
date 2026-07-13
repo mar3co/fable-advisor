@@ -54,6 +54,9 @@ SPEC=$(mktemp -t codex-review.XXXXXX)
   echo "For EVERY claim cite file:line using the NEW file's (post-image) line numbers,"
   echo "so findings map to the working tree. An uncited claim is worthless."
   echo "Rank findings by severity. If you find nothing, say so plainly — do not manufacture findings."
+  echo "If the commit under review is not checked out in the working tree, read file"     # commit mode only —
+  echo "contents with git show <resolved-sha>:<path> — never from the working tree,"      # in uncommitted mode the
+  echo "whose bytes can differ from the commit under review."                             # working tree IS the bytes
 } > "$SPEC"
 ```
 
@@ -70,7 +73,7 @@ If the caller's request contains a `FAST MODE: on` line, prefix the launch with 
 
 Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values. Repeat `"$RL" wait <PID>` until it prints `EXITED` — every slice as a normal FOREGROUND command, never backgrounded, never a "wait for a notification" you end your turn on (no notification re-wakes a finished agent; a detached CLI would keep running unsupervised). Then always `"$RL" reap <PID> <WATCHDOG>`. If your turn must instead end early while codex may still be running, reap first and report `STATUS: partial` with whatever landed. The `codex-review` lane pins `sandbox_mode` to read-only — a reviewer never edits files, and gets no write access to try. `LOG` is a JSONL event stream (`--json`): machine-labeled command executions with exit codes, useful when a run needs diagnosing. If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed.
 
-5. **Distill.** Read `"$FINAL"` (per batch, if the size guard split the diff). Keep each finding as severity + one-line claim + `file:line`. A finding codex didn't anchor to a `file:line` gets labeled `uncited` — pass it through flagged, never silently promote or drop it. Spot-check citations against the WORKING TREE (Read the cited line; citations are post-image, so they will usually not appear as literal numbers in the unified diff text — do not flag on that basis); a citation whose line doesn't exist or doesn't match the claim is itself worth flagging.
+5. **Distill.** Read `"$FINAL"` (per batch, if the size guard split the diff). Keep each finding as severity + one-line claim + `file:line`. A finding codex didn't anchor to a `file:line` gets labeled `uncited` — pass it through flagged, never silently promote or drop it. Spot-check citations against the REVIEWED BYTES: in commit mode, when the reviewed SHA is not the checked-out HEAD, read the cited line via `git show "$SHA":<path>` — the working tree can hold different bytes, and a spot-check against the wrong bytes silently validates or invalidates the wrong claim; otherwise the working tree is fine to Read. (Citations are post-image line numbers, so they will usually not appear as literal numbers in the unified diff text — do not flag on that basis.) A citation whose line doesn't exist or doesn't match the claim is itself worth flagging.
 
 ## What you return
 

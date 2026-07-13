@@ -48,6 +48,7 @@ echo "test 2: natural exit is detected and the watchdog self-terminates"
 launch 2 2 600
 R=$("$RL" wait "$PID" 30)
 [ "$R" = EXITED ] && pass "wait detected natural exit" || fail "wait printed '$R', expected EXITED"
+grep -q '^EXIT: 0' "$LOG" && pass "EXIT status recorded in LOG on natural exit" || fail "no EXIT marker in LOG after natural exit"
 sleep 12   # watchdog polls every 10s; it must notice the dead lane and exit on its own
 if kill -0 "$WD" 2>/dev/null; then fail "watchdog still alive after lane exited (stale-kill hazard)"; else pass "watchdog self-terminated"; fi
 "$RL" reap "$PID" "$WD" >/dev/null
@@ -82,15 +83,18 @@ launch 2 2 600 grok
 sleep 1
 grep -q 'Bash(sudo\*)' "$SHIM/last-args" && grep -q 'Bash(git push\*)' "$SHIM/last-args" \
   && pass "grok implement lane carries deny rules" || fail "grok implement lane missing deny rules: $(cat "$SHIM/last-args")"
+grep -q 'bypassPermissions' "$SHIM/last-args" \
+  && pass "grok implement lane runs bypassPermissions (0.2.99 cancels unclassifiable commands under every other mode)" \
+  || fail "grok implement lane missing bypassPermissions: $(cat "$SHIM/last-args")"
 "$RL" reap "$PID" "$WD" >/dev/null
 launch 2 2 600 grok-review
 sleep 1
 grep -q -- '--tools read_file,grep,list_dir' "$SHIM/last-args" && pass "grok-review restricted to read-only tool allowlist" || fail "grok-review args lack the tool allowlist"
-grep -q 'acceptEdits' "$SHIM/last-args" && fail "grok-review args contain acceptEdits" || pass "grok-review invoked without acceptEdits"
+grep -q 'permission-mode' "$SHIM/last-args" && fail "grok-review args carry a permission mode" || pass "grok-review invoked without a permission mode"
 "$RL" reap "$PID" "$WD" >/dev/null
 launch 2 2 600 grok-research
 sleep 1
-grep -q 'acceptEdits' "$SHIM/last-args" && fail "grok-research args contain acceptEdits" || pass "grok-research invoked without acceptEdits"
+grep -q 'permission-mode' "$SHIM/last-args" && fail "grok-research args carry a permission mode" || pass "grok-research invoked without a permission mode"
 grep -q -- '--tools web_search,open_page,open_page_with_find,x_user_search,x_semantic_search,x_keyword_search,x_thread_fetch,read_file,list_dir,grep' "$SHIM/last-args" \
   && grep -q -- '--disallowed-tools use_tool,search_tool' "$SHIM/last-args" \
   && pass "grok-research restricted to web+read allowlist, MCP bridge disallowed" || fail "grok-research restriction args wrong: $(cat "$SHIM/last-args")"
