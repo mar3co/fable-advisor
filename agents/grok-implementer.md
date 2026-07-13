@@ -48,12 +48,14 @@ cat > "$SPEC" << 'SPEC_EOF'
 [the full spec, restated cleanly: objective, files, interfaces,
 constraints, verification, commit ownership. End with: "Run the
 verification command and paste its actual output in your final
-message, then commit on the current branch (plain imperative
-subject) and paste the commit hash. Your final message may contain
-only completed actions with their captured output — a final message
-that narrates intended next steps ('running X, then committing')
-is a task failure. If a command is denied or fails, paste the exact
-error instead."]
+message." — then, under lane ownership (the default): "Then commit
+on the current branch (plain imperative subject) and paste the
+commit hash." — or, when the spec says COMMIT: caller: "Do NOT
+commit; leave the tree uncommitted for the caller." Always close
+with: "Your final message may contain only completed actions with
+their captured output — a final message that narrates intended next
+steps ('running X, then committing') is a task failure. If a
+command is denied or fails, paste the exact error instead."]
 SPEC_EOF
 ```
 
@@ -61,7 +63,10 @@ Record the baseline before launching, so acceptance can tell this lane's commits
 
 ```bash
 BASELINE=$(git rev-parse HEAD)
+git status --porcelain   # pre-existing uncommitted paths, if any — record them now
 ```
+
+If the tree is already dirty at launch, note which paths: a backstop commit stages only the task's files, and pre-existing dirt gets reported in `GAPS`, never absorbed into the lane's commit.
 
 2. Launch grok DETACHED via the plugin's supervisor script — never in the foreground. This matters: the harness caps any single foreground tool call at 10 minutes; a foreground launch kills the lane's supervision mid-run on long tasks while grok keeps working as an orphan. The supervisor's pure-bash watchdog wraps the detached process, so the wall clock holds even if this agent dies, with no coreutils dependency:
 
@@ -104,7 +109,7 @@ What the supervisor enforces for this lane (non-negotiable):
 
 4. **Verify from evidence; re-run only when needed.** Read the diff (`git diff` / `git status`) and grok's output in `FINAL`. Grok can run commands headlessly, so the expected case is `FINAL` containing the verification command's genuinely captured output, passing as the run's final act with no edits after it — cite it and skip the re-run. The tripwire is narration of intent: a final message describing verification or committing as an upcoming step ("running X, then committing") with no captured output is claim-only BY RULE — run the spec's verification yourself. Grok's *claim* of success is never evidence — captured execution or your own re-run is. Say in the report which one you have.
 
-5. **Settle the commit.** Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if grok committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
+5. **Settle the commit.** Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if grok committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
 
 ## What you return
 
@@ -114,7 +119,7 @@ STATUS: complete | partial | timeout | unavailable
 OBJECTIVE: [restated in one line]
 CHANGES: [file — one-line summary, per file, from the actual diff]
 VERIFIED: [verification command — evidence: captured-output excerpt (command ran and passed as the run's final act) or your own re-run output; say which]
-COMMIT: [hash of the lane's commit (who made it: grok or wrapper backstop) | "uncommitted — spec said caller commits" — never empty]
+COMMIT: [hash of the lane's commit (who made it: grok or wrapper backstop) | "uncommitted — spec said caller commits" | "none — run ended before a committable state (see STATUS)" — never empty in a full report]
 GROK SAID: [one-line summary of grok's final message, note any disagreement with the diff]
 PROCESS: [reap's output, pasted — e.g. "REAPED: 12345 (group dead)"; a report without it means the lane may still be running]
 GAPS: [spec ambiguities, unfinished items, or "none"]

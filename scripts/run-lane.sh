@@ -64,14 +64,14 @@ start)
       # the documented config key (the subcommand has no --sandbox flag;
       # key honored on codex-cli 0.144.1 — an unknown -c key would be
       # silently dropped, so re-verify on CLI upgrades); --json makes LOG a
-      # machine-parseable JSONL event stream. Instructions pass as the
-      # positional PROMPT after `--`: the subcommand rejects stdin ('-') and
-      # its --commit/--base flags when custom instructions are present.
-      PROMPT_TEXT=$(cat "$SPEC" 2>/dev/null)
-      [ -n "$PROMPT_TEXT" ] || { echo "STATUS: unavailable"; echo "REASON: spec file unreadable or empty at launch: $SPEC"; exit 1; }
-      codex exec review -m "${MODEL:-gpt-5.6-sol}" -c model_reasoning_effort=high $FAST \
+      # machine-parseable JSONL event stream. Instructions arrive on stdin
+      # via the positional '-' PROMPT. Custom instructions are mutually
+      # exclusive with the subcommand's --commit/--base target flags
+      # (verified on 0.144.1), which is why the target ref lives in the
+      # instruction text instead.
+      codex exec review --model "${MODEL:-gpt-5.6-sol}" -c model_reasoning_effort=high $FAST \
         -c 'sandbox_mode="read-only"' --json \
-        --output-last-message "$FINAL" -- "$PROMPT_TEXT" > "$LOG" 2>&1 &
+        --output-last-message "$FINAL" - < "$SPEC" > "$LOG" 2>&1 &
       ;;
     grok|grok-review|grok-research)
       command -v grok >/dev/null 2>&1 || { echo "STATUS: unavailable"; echo "REASON: grok not on PATH"; exit 1; }
@@ -94,10 +94,13 @@ start)
           GARGS+=(--tools 'read_file,grep,list_dir'
                   --disallowed-tools 'use_tool,search_tool') ;;
         grok-research)
-          # Researcher keeps web tools but loses shell and edit tools — and
-          # the MCP bridge tools, which could otherwise reach the denied
-          # tools from the side.
-          GARGS+=(--disallowed-tools 'run_terminal_cmd,search_replace,write,use_tool,search_tool') ;;
+          # Researcher: allowlist of the web + read tools only (tool names
+          # verified live on grok 0.2.99 — grok silently accepts UNKNOWN
+          # tool names, so a denylist typo voids the restriction with no
+          # error; an allowlist fails closed). MCP bridge tools leak past
+          # allowlists, so they are disallowed explicitly, like grok-review.
+          GARGS+=(--tools 'web_search,open_page,open_page_with_find,x_user_search,x_semantic_search,x_keyword_search,x_thread_fetch,read_file,list_dir,grep'
+                  --disallowed-tools 'use_tool,search_tool') ;;
       esac
       grok "${GARGS[@]}" > "$FINAL" 2>&1 &
       LOG=$FINAL

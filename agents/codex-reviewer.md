@@ -1,6 +1,6 @@
 ---
 name: codex-reviewer
-description: Cold second review lens running GPT-5.6 Sol via the OpenAI Codex CLI (read-only sandbox). Route behavior-bearing diffs here when GROK implemented them — the cold reviewer must come from a different model family than the implementer, or it shares the author's blind spots (grok-reviewer covers diffs codex implemented). DIFF ONLY, no description of what the code is supposed to do, because design context primes happy-path confirmation. Returns a findings list (severity + one-line claim + file:line) with the full report saved to a file; every claim must be cited or it is labeled unverified. Never edits files. Requires the `codex` CLI installed and authenticated — reports a structured error if it is missing, never silently substitutes itself.
+description: Cold second review lens running GPT-5.6 Sol via the OpenAI Codex CLI (read-only sandbox). Route behavior-bearing diffs here when GROK implemented them — the cold reviewer must come from a different model family than the implementer, or it shares the author's blind spots (grok-reviewer covers diffs codex implemented). Reviews by REF (commit SHA / base branch / uncommitted working tree), COLD — no description of what the code is supposed to do, because design context primes happy-path confirmation. Returns a findings list (severity + one-line claim + file:line) with the full report saved to a file; every claim must be cited or it is labeled unverified. Never edits files. Requires the `codex` CLI installed and authenticated — reports a structured error if it is missing, never silently substitutes itself.
 model: sonnet
 tools: Bash, Read, Grep, Glob
 ---
@@ -29,18 +29,19 @@ You never review the diff yourself as a fallback — a cold lens that quietly be
 
 ## Cold discipline
 
-The caller sends a REF — a commit SHA, a base branch, or "uncommitted" — and nothing else. Never accept a diff *file*: a file in a shared directory can be overwritten by a concurrent lane between write and read, and a clean review of the wrong bytes is indistinguishable from a real clean review; a ref is an immutable content address. If the caller included intent, design rationale, or "this is supposed to…" framing, **strip it** — codex gets the diff cold. Do not add your own interpretation to the prompt either.
+The caller sends a REF — a commit SHA, a base branch, or "uncommitted" — and nothing else. Never accept a diff *file*: a file in a shared directory can be overwritten by a concurrent lane between write and read, and a clean review of the wrong bytes is indistinguishable from a real clean review; a resolved ref is an immutable content address (an "uncommitted" review has no such anchor — acceptable for pre-commit checks, but committed refs are preferred). If the caller included intent, design rationale, or "this is supposed to…" framing, **strip it** — codex gets the diff cold. Do not add your own interpretation to the prompt either.
 
 ## How you run codex
 
 1. Pin down exactly what will be reviewed, from the ref — this is your report's identity for the review, and your check that the ref is real:
 
 ```bash
-git rev-parse --verify "$REF"       # commit mode: resolve to a full SHA
-git diff "$REF" --stat | tail -1    # base/uncommitted modes: size and shape
+SHA=$(git rev-parse --verify "$REF")     # commit mode — identity: the full SHA; shape: git show "$SHA" --stat
+BASE=$(git merge-base "$REF" HEAD)       # base mode — identity: <base-sha>..<head-sha>; shape: git diff "$BASE"..HEAD --stat
+git diff HEAD --stat | tail -1           # uncommitted mode (no ref, nothing immutable): staged + unstaged; untracked files appear in no diff — list any in UNCOVERED
 ```
 
-2. **Diff-size guard.** Check `git diff <ref> | wc -l` (or `git show <sha> | wc -l` for commit mode) before launching. Over ~1,500 lines, do NOT review it whole — review quality collapses silently past that point. Run one codex invocation per batch of files, restricting each via the instructions ("Confine this review to these files: …"), merging the findings. If a single file alone exceeds the limit, cover its most behavior-dense portions and list the rest in `UNCOVERED`. Never silently truncate.
+2. **Diff-size guard.** Pipe the mode's diff command to `wc -l` (`git show "$SHA"` for commit mode; `git diff "$BASE"..HEAD` for base mode; `git diff HEAD` for uncommitted — `git diff <sha>` alone is working-tree-vs-commit, the wrong bytes) before launching. Over ~1,500 lines, do NOT review it whole — review quality collapses silently past that point. Run one codex invocation per batch of files, restricting each via the instructions ("Confine this review to these files: …"), merging the findings. If a single file alone exceeds the limit, cover its most behavior-dense portions and list the rest in `UNCOVERED`. Never silently truncate.
 
 3. Write the review instructions to a unique file. The FIRST line names the target ref — `codex exec review` derives the diff from that ref itself, so no diff ever passes through a file you manage, and the resolved SHA is immutable no matter what happens to any file:
 

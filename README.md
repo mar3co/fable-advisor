@@ -149,9 +149,9 @@ Model resolution order in Claude Code: `CLAUDE_CODE_SUBAGENT_MODEL` env var → 
 |---|---|---|
 | codex (implementing) | `--sandbox workspace-write`, never `danger-full-access` | Writes code scoped to the working tree; runs commands inside the sandbox |
 | codex (reviewing) | `codex exec review` with `sandbox_mode` pinned read-only | Derives the diff from a ref itself (no diff file to race); cannot write at all |
-| grok (implementing) | Enforced `--deny` rules: no `sudo`, no `git push`, no `curl`/`wget`; never `--always-approve` | Edits files AND runs commands headlessly — grok's `--permission-mode` is not enforcement on current CLIs (verified on 0.2.99), so it runs your verification and commits its own work; the deny rules are a targeted deny-list, not confinement (grok's kernel sandbox does not restrict child processes on macOS today) |
+| grok (implementing) | Enforced `--deny` rules against the obvious forms of `sudo`, `git push`, `curl`/`wget`; never `--always-approve` | Edits files AND runs commands headlessly — grok's `--permission-mode` is not enforcement on current CLIs (verified on 0.2.99), so it runs your verification and commits its own work; the deny rules are a prefix-matched deny-list, not confinement (equivalent command forms can bypass them, and grok's kernel sandbox does not restrict child processes on macOS today) |
 | grok (reviewing) | `--tools read_file,grep,list_dir` allowlist (enforced), MCP bridge tools disallowed | Hard read-only: no shell, no edit tools |
-| grok (research) | Shell and edit tools stripped via `--disallowed-tools` (enforced), web tools kept | Read-and-report only |
+| grok (research) | Allowlist of web + read tools only (`--tools`, names verified live — grok silently accepts unknown tool names, so denylists fail open), MCP bridge tools disallowed | Read-and-report only: no shell, no edit tools |
 | all CLI lanes (implement and review) | Launched detached under `scripts/run-lane.sh` (process-group kills, pure-bash watchdog — no coreutils needed) | Long runs survive the 10-minute foreground cap; the wall clock holds even if the supervising agent dies. `scripts/test-run-lane.sh` smoke-tests this without API calls |
 
 ## Use it

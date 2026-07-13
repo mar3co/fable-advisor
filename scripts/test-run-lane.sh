@@ -69,7 +69,7 @@ grep -q 'STATUS: unavailable' <<< "$OUT" && pass "directory as spec fails loudly
 launch 2 2 600 codex-review
 sleep 1
 grep -q 'exec review' "$SHIM/last-args" && pass "codex-review invokes the exec review subcommand" || fail "codex-review args lack 'exec review'"
-grep -q 'test' "$SHIM/last-args" && pass "codex-review passes the spec text as the instruction prompt" || fail "codex-review args lack the spec text"
+grep -qE -- '- $' "$SHIM/last-args" && pass "codex-review reads instructions from stdin via '-'" || fail "codex-review args lack the trailing '-' prompt: $(cat "$SHIM/last-args")"
 grep -q 'sandbox_mode="read-only"' "$SHIM/last-args" && pass "codex-review pins sandbox_mode read-only" || fail "codex-review args lack read-only sandbox_mode"
 grep -q -- '--json' "$SHIM/last-args" && pass "codex-review emits JSONL events" || fail "codex-review args lack --json"
 R=$("$RL" wait "$PID" 30)
@@ -91,7 +91,9 @@ grep -q 'acceptEdits' "$SHIM/last-args" && fail "grok-review args contain accept
 launch 2 2 600 grok-research
 sleep 1
 grep -q 'acceptEdits' "$SHIM/last-args" && fail "grok-research args contain acceptEdits" || pass "grok-research invoked without acceptEdits"
-grep -q -- '--disallowed-tools run_terminal_cmd,search_replace,write,use_tool,search_tool' "$SHIM/last-args" && pass "grok-research loses shell, edit, and MCP bridge tools" || fail "grok-research disallowed-tools list incomplete: $(cat "$SHIM/last-args")"
+grep -q -- '--tools web_search,open_page,open_page_with_find,x_user_search,x_semantic_search,x_keyword_search,x_thread_fetch,read_file,list_dir,grep' "$SHIM/last-args" \
+  && grep -q -- '--disallowed-tools use_tool,search_tool' "$SHIM/last-args" \
+  && pass "grok-research restricted to web+read allowlist, MCP bridge disallowed" || fail "grok-research restriction args wrong: $(cat "$SHIM/last-args")"
 R=$("$RL" wait "$PID" 30)
 [ "$R" = EXITED ] && pass "grok-research lane ran and exited" || fail "grok-research wait printed '$R'"
 "$RL" reap "$PID" "$WD" >/dev/null
