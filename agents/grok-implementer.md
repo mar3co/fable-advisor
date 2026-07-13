@@ -103,11 +103,11 @@ If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed
 
 ```bash
 ENC=$(pwd | sed 's|/|%2F|g')
-grep -l '"cancellation_category":"permission_cancelled"' \
-  ~/.grok/sessions/"$ENC"/*/events.jsonl 2>/dev/null | tail -1
+find ~/.grok/sessions/"$ENC" -name events.jsonl -newer "$SPEC" \
+  -exec grep -l '"cancellation_category":"permission_cancelled"' {} + 2>/dev/null
 ```
 
-(The `%2F` path encoding is grok 0.2.99's observed session-directory scheme; if a future CLI changes it the grep simply finds nothing and you fall through to the normal relaunch path below — degraded diagnosis, never a wrong one.) A hit (from a session file whose timestamp matches this run) means the grok CLI cancelled one of its own shell commands and killed the turn — a deterministic CLI bug class, not an outage, so a relaunch with the identical spec dies identically: do NOT relaunch. Proceed straight to the backstop path (verify and settle the commit yourself, steps 4–5), and name the diagnosis in the report — `GROK SAID:` carries "run died on grok CLI permission cancellation (known headless bug class; run doctor)". The supervisor's `bypassPermissions` launch mode exists to prevent exactly this; a hit anyway means a CLI regression worth reporting.
+The `-newer "$SPEC"` filter is load-bearing: it restricts the check to sessions created after this run's spec was written, so a stale hit from a pre-fix session — or a concurrent lane's session in the same repo — can never be attributed to this run. (The `%2F` path encoding is grok 0.2.99's observed session-directory scheme; if a future CLI changes it the find simply matches nothing and you fall through to the normal relaunch path below — degraded diagnosis, never a wrong one.) A hit means the grok CLI cancelled one of its own shell commands and killed the turn — a deterministic CLI bug class, not an outage, so a relaunch with the identical spec dies identically: do NOT relaunch. Proceed straight to the backstop path (verify and settle the commit yourself, steps 4–5), and name the diagnosis in the report — `GROK SAID:` carries "run died on grok CLI permission cancellation (known headless bug class; run doctor)". The supervisor's `bypassPermissions` launch mode exists to prevent exactly this; a hit anyway means a CLI regression worth reporting.
 
 Otherwise — no signature, died within the first minute leaving no diff (`git status` clean, `FINAL` holding nothing but the supervisor's `EXIT:` marker or a couple of lines of narration) — reap and relaunch once with the identical spec, noting the retry in the report; a second early death is `STATUS: unavailable`, with `FINAL`'s tail pasted into `REASON` so the caller can tell an outage from a CLI that runs but does nothing.
 

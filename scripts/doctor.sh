@@ -104,7 +104,7 @@ CANARY_EOF
                       --output-format plain --cwd "$(pwd)" \
                       --permission-mode bypassPermissions \
                       --deny 'Bash(sudo*)' --deny 'Bash(git push*)' \
-                      --deny 'Bash(curl*)' --deny 'Bash(wget*)' 2>/dev/null | grep -q "$NONCE"; }
+                      --deny 'Bash(curl*)' --deny 'Bash(wget*)' 2>/dev/null | grep -qF "$NONCE"; }
     if grok_canary || grok_canary; then    # one retry for model non-compliance; a pass needs the nonce, which only real execution can produce
       ok "implement-lane permission canary passed (loop/\$VAR command ran headlessly, nonce proven)"
     else
