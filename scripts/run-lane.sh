@@ -64,7 +64,9 @@ start)
       # the documented config key (the subcommand has no --sandbox flag;
       # key honored on codex-cli 0.144.1 — an unknown -c key would be
       # silently dropped, so re-verify on CLI upgrades); --json makes LOG a
-      # machine-parseable JSONL event stream. Instructions arrive on stdin
+      # JSONL event stream — plus one plain-text "WATCHDOG: killed …" line
+      # if the watchdog fires, so consumers grep for markers rather than
+      # strictly parse. Instructions arrive on stdin
       # via the positional '-' PROMPT. Custom instructions are mutually
       # exclusive with the subcommand's --commit/--base target flags
       # (verified on 0.144.1), which is why the target ref lives in the
