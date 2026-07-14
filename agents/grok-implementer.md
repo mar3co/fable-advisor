@@ -83,15 +83,15 @@ RL="${CLAUDE_PLUGIN_ROOT}/scripts/run-lane.sh"
 
 Note the printed `PID:`, `WATCHDOG:`, `FINAL:`, and `LOG:` values — you need all four. To use a different grok model than the documented `grok-4.5` default, pass it as the fourth argument; the slug is a default, not a constant.
 
-3. Wait in bounded slices, repeating until it prints `EXITED` (each slice blocks at most 240 seconds):
+3. Wait in bounded slices, repeating until it prints `EXITED` (each slice blocks at most 90 seconds — bounded below the harness's ~2-minute auto-background threshold so a slice always returns synchronously):
 
 ```bash
 "$RL" wait <PID>
 ```
 
-Every `wait` slice runs as a normal FOREGROUND command — never in the background, and never as a "wait for a notification" you end your turn on. No notification re-wakes you: an agent that ends its turn is finished, and if grok is still alive it keeps editing, committing, or pushing with nobody supervising while the caller believes the lane is settled. If your turn must end for any reason while grok may still be running, reap first and report `STATUS: partial` with the tree's actual state — a killed run reported honestly beats a detached one reported as "waiting".
+Every `wait` slice runs as a normal FOREGROUND command — never in the background, and never as a "wait for a notification" you end your turn on. No notification re-wakes you: an agent that ends its turn is finished, and if grok is still alive it keeps editing, committing, or pushing with nobody supervising while the caller believes the lane is settled. If your turn must end for any reason while grok may still be running, reap first and report `STATUS: partial` with the tree's actual state — a killed run reported honestly beats a detached one reported as "waiting". If the harness ever auto-backgrounds a wait slice anyway, do not end your turn to wait on that task's notification — immediately run a fresh foreground `wait` slice and ignore the backgrounded one's eventual output.
 
-Never write your report while grok is still running. After `EXITED` — or once the budget is spent (roughly `SECS / 240` slices; the watchdog kills at the budget and appends a `WATCHDOG:` line to `LOG`) — always clean up:
+Never write your report while grok is still running. After `EXITED` — or once the budget is spent (roughly `SECS / 90` slices; the watchdog kills at the budget and appends a `WATCHDOG:` line to `LOG`) — always clean up:
 
 ```bash
 "$RL" reap <PID> <WATCHDOG>

@@ -2,7 +2,7 @@
 # test-run-lane.sh — smoke test for run-lane.sh process supervision. No API calls.
 # A PATH-shimmed fake `codex` (parent that spawns a child worker) exercises the
 # orphan-child bug class: reap and the watchdog must kill the whole process
-# group, not just the top PID. Takes ~30 seconds.
+# group, not just the top PID. Takes ~2.5 minutes.
 set -u
 cd "$(dirname "$0")" || exit 1
 RL=./run-lane.sh
@@ -118,6 +118,15 @@ unset LANE_CODEX_FAST
 launch 2 2 600
 sleep 1
 grep -q 'service_tier=fast' "$SHIM/last-args" && fail "fast-tier flags present without LANE_CODEX_FAST" || pass "codex lane omits fast-tier flags when unset"
+"$RL" reap "$PID" "$WD" >/dev/null
+
+echo "test 7: wait slices are capped below the harness auto-background threshold"
+launch 180 180 600
+START=$(date +%s)
+R=$("$RL" wait "$PID" 9999)
+ELAPSED=$(( $(date +%s) - START ))
+[ "$R" = STILL-RUNNING ] && pass "capped wait returned STILL-RUNNING (process still alive)" || fail "capped wait printed '$R', expected STILL-RUNNING"
+[ "$ELAPSED" -ge 85 ] && [ "$ELAPSED" -le 115 ] && pass "capped wait elapsed ${ELAPSED}s (in 85-115s window)" || fail "capped wait elapsed ${ELAPSED}s, expected 85-115s"
 "$RL" reap "$PID" "$WD" >/dev/null
 
 printf '\n%s\n' "$([ "$FAILS" -eq 0 ] && echo "ALL PASS" || echo "$FAILS FAILURE(S)")"

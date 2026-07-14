@@ -2,6 +2,15 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.13.0 — 2026-07-13
+
+Root-caused from a field report (an orchestration session, 2026-07-13): a lane wrapper sat unsupervised for ~10 minutes after its wait loop lost the wakeup that should have reaped the detached CLI.
+
+- **`run-lane.sh wait` defaults to 90s and hard-caps any larger explicit value at 90s.** The old 240s default was designed when the harness's only limit was a 10-minute foreground cap. The harness now auto-backgrounds any foreground Bash call after ~2 minutes, so every default wait slice was forcibly converted into a background task mid-call; the wrapper ended its turn hoping the task-completion notification would re-wake it; that wakeup could race turn-end and get lost, leaving the CLI unsupervised indefinitely. Slices at ≤90s stay under the threshold with margin, so they always return synchronously and wrapper liveness no longer depends on any notification. Capping silently is semantically safe: `wait` is always called in a loop by the supervisor-using agents, so slice length is purely an efficiency knob, never a behavior change.
+- **Docs failsafe on all five supervisor-using agents** (grok-implementer, codex-implementer, grok-reviewer, codex-reviewer, grok-researcher): if the harness ever auto-backgrounds a wait slice anyway, immediately run a fresh foreground `wait` slice and ignore the backgrounded one's eventual output — never end the turn to wait on a notification. Implementer docs also restate the 90s bound and `SECS / 90` slice budget math.
+- **No heartbeat/marker machinery needed.** `wait` already returns `EXITED` immediately when the PID is dead at slice start (field-confirmed), so a late-waking wrapper converges in one step once the race is closed by construction.
+- **Smoke test 7** in `scripts/test-run-lane.sh` asserts that an explicit huge `slice-secs` still returns `STILL-RUNNING` inside an 85–115s window against a still-alive 180s fake CLI — proving the cap, not the argument, bounds the slice.
+
 ## 1.12.0 — 2026-07-13
 
 Root-caused from two field reports (macOS + Android sessions, 2026-07-13): every real grok implementation task was dying at its first nontrivial shell command.

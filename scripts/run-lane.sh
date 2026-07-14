@@ -7,8 +7,9 @@
 #     lane: codex | grok (implement) |             print PID/WATCHDOG/FINAL/LOG
 #           codex-review | grok-review |           (read-only lanes; secs
 #           grok-research                          defaults 600 vs 1800)
-#   wait <pid> [slice-secs]                        one bounded slice (default 240s),
-#                                                  prints EXITED or STILL-RUNNING
+#   wait <pid> [slice-secs]                        one bounded slice (default 90s,
+#                                                  hard-capped at 90s), prints
+#                                                  EXITED or STILL-RUNNING
 #   reap <pid> [watchdog-pid]                      kill lane group + watchdog, cleanup
 # Env: LANE_CODEX_FAST=1 adds the fast service tier to codex lane launches
 # (~1.5x speed, ~2-2.5x credits; needs ChatGPT sign-in). Grok lanes ignore it.
@@ -149,8 +150,14 @@ start)
   echo "LOG: $LOG"
   ;;
 wait)
+  # Harness auto-backgrounds foreground tool calls after ~2 minutes; a
+  # backgrounded slice detaches the wrapper's supervision (lost wakeup), so
+  # slices stay at <=90s with margin under that threshold. Capping silently
+  # (invalid, overflowing, or large values) is safe: wait is always called in
+  # a loop — slice length is efficiency only.
   PID=${1:?usage: run-lane.sh wait <pid> [slice-secs]}
-  SLICE=${2:-240}
+  SLICE=${2:-90}
+  [ "$SLICE" -le 90 ] 2>/dev/null || SLICE=90
   i=0
   while [ "$i" -lt "$((SLICE / 5))" ] && kill -0 "$PID" 2>/dev/null; do
     sleep 5
