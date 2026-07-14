@@ -55,7 +55,10 @@ commit; leave the tree uncommitted for the caller." Always close
 with: "Your final message may contain only completed actions with
 their captured output — a final message that narrates intended next
 steps ('running X, then committing') is a task failure. If a
-command is denied or fails, paste the exact error instead."]
+command is denied or fails, paste the exact error instead. If you
+observe commits you did not make, or HEAD/branch movement you did
+not cause, mid-run: STOP and report it in your final message —
+never git reset, revert, or checkout over it."]
 SPEC_EOF
 ```
 
@@ -66,7 +69,10 @@ Record the baseline before launching, so acceptance can tell this lane's commits
 ```bash
 BASELINE=$(git rev-parse HEAD)
 git status --porcelain   # pre-existing uncommitted paths, if any — record them now
+BRANCH=$(git branch --show-current)   # the lane's stability anchor, checked before any mutating settle action
 ```
+
+An empty `BRANCH` means HEAD is detached — stop and report before launching anything, whoever owns the commit: the lane contract's "commit on the current branch" has no target, and a nameless anchor can't distinguish one detached state from another at re-check. With detached starts excluded, the name comparison catches any branch switch still in effect at re-check; an out-and-back switch that restores the name is invisible to it — that case belongs to the reflog check in step 5.
 
 If the tree is already dirty at launch, note which paths: a backstop commit stages only the task's files, and pre-existing dirt gets reported in `GAPS`, never absorbed into the lane's commit.
 
@@ -109,7 +115,7 @@ find ~/.grok/sessions/"$ENC" -name events.jsonl -newer "$SPEC" \
 
 The `-newer "$SPEC"` filter is load-bearing: it restricts the check to sessions created after this run's spec was written, so a stale hit from a pre-fix session — or a concurrent lane's session in the same repo — can never be attributed to this run. (The `%2F` path encoding is grok 0.2.99's observed session-directory scheme; if a future CLI changes it the find simply matches nothing and you fall through to the normal relaunch path below — degraded diagnosis, never a wrong one.) A hit means the grok CLI cancelled one of its own shell commands and killed the turn — a deterministic CLI bug class, not an outage, so a relaunch with the identical spec dies identically: do NOT relaunch. Proceed straight to the backstop path (verify and settle the commit yourself, steps 4–5), and name the diagnosis in the report — `GROK SAID:` carries "run died on grok CLI permission cancellation (known headless bug class; run doctor)". The supervisor's `bypassPermissions` launch mode exists to prevent exactly this; a hit anyway means a CLI regression worth reporting.
 
-Otherwise — no signature, died within the first minute leaving no diff (`git status` clean, `FINAL` holding nothing but the supervisor's `EXIT:` marker or a couple of lines of narration) — reap and relaunch once with the identical spec, noting the retry in the report; a second early death is `STATUS: unavailable`, with `FINAL`'s tail pasted into `REASON` so the caller can tell an outage from a CLI that runs but does nothing.
+Otherwise — no signature, died within the first minute leaving no diff (`git status` clean, `FINAL` holding nothing but the supervisor's `EXIT:` marker or a couple of lines of narration) — first glance at `git reflog --date=iso`: a post-launch reset or checkout this lane didn't perform means the no-op shape is foreign interference — stop-and-report, not a relaunch. Otherwise reap and relaunch once with the identical spec, noting the retry in the report; a second early death is `STATUS: unavailable`, with `FINAL`'s tail pasted into `REASON` so the caller can tell an outage from a CLI that runs but does nothing.
 
 What the supervisor enforces for this lane (non-negotiable):
 
@@ -121,9 +127,9 @@ What the supervisor enforces for this lane (non-negotiable):
 | `--cwd "$(pwd)"` + `--output-format plain` | Deterministic working root; final message captured for the report. |
 | Detached launch + watchdog | Survives the harness's 10-minute foreground cap; the wall clock holds even if this agent dies. |
 
-4. **Verify from evidence; re-run only when needed.** Read the diff (`git diff` / `git status`) and grok's output in `FINAL`. Grok can run commands headlessly, so the expected case is `FINAL` containing the verification command's genuinely captured output, passing as the run's final act with no edits after it — cite it and skip the re-run. The tripwire is narration of intent: a final message describing verification or committing as an upcoming step ("running X, then committing") with no captured output is claim-only BY RULE — run the spec's verification yourself. Grok's *claim* of success is never evidence — captured execution or your own re-run is. Say in the report which one you have.
+4. **Verify from evidence; re-run only when needed.** Run the stability-anchor check from step 5 first — verification against a checkout another writer has moved or rewound is void, and a mismatch is the same stop-and-report condition. Read the diff (`git diff` / `git status`) and grok's output in `FINAL`. Grok can run commands headlessly, so the expected case is `FINAL` containing the verification command's genuinely captured output, passing as the run's final act with no edits after it — cite it and skip the re-run. The tripwire is narration of intent: a final message describing verification or committing as an upcoming step ("running X, then committing") with no captured output is claim-only BY RULE — run the spec's verification yourself. Grok's *claim* of success is never evidence — captured execution or your own re-run is. Say in the report which one you have.
 
-5. **Settle the commit.** Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if grok committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
+5. **Settle the commit.** First re-verify the stability anchor: the current branch is still `$BRANCH`; `$BASELINE` is still an ancestor of HEAD (`git merge-base --is-ancestor $BASELINE HEAD` — a foreign rewind makes `git log $BASELINE..HEAD` deceptively EMPTY, so an empty range is not a pass by itself); and everything in that range is this task's work. On any mismatch — wrong branch, a rewound HEAD, or commits you didn't make — STOP: no commit, no reset, no checkout; report `STATUS: partial` with the observed state and let the caller arbitrate. One rewind evades the anchor: a foreign `reset --hard` landing exactly on `$BASELINE` leaves all three anchor conditions passing, so the detector there is discrepancy, not the anchor — if grok's captured output claims commits or edits that the range and tree don't show, or the range and tree are unexpectedly empty after a run that plainly did work, check `git reflog --date=iso` for reset or checkout entries dated after your launch that this lane didn't perform; a foreign entry is the same stop-and-report condition. Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if grok committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Never `git reset`, `revert`, or `checkout` over commits this lane didn't make — destructive self-correction against another writer is how a shared checkout gets its branch pointers corrupted (field-observed: a lane's `reset --hard` after the checkout had moved to a different branch silently rewrote an unrelated branch's history). Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
 
 ## What you return
 
@@ -144,5 +150,6 @@ GAPS: [spec ambiguities, unfinished items, or "none"]
 - One grok invocation per task unless the caller explicitly decomposed it — the single exception is the one relaunch after an early no-diff death (step 3), noted in the report.
 - Never end your turn while a grok process you started is alive. The report's `PROCESS:` field carries the evidence.
 - Never claim completion without execution evidence — captured output showing verification passing as the run's final act, or your own re-run. "Grok said it works" is forbidden as evidence; a passing run in the captured output is fine, and re-running on top of it just burns the suite twice.
+- Never destructively self-correct shared git state. Foreign commits or HEAD/branch movement you didn't cause are a stop-and-report condition, at every stage of the run.
 - If grok's changes are wrong, report that plainly with the failing output — do not patch them yourself. Fix decisions belong to the caller.
 - If the task turns out to be architectural — the spec itself is wrong — stop and report; that decision belongs upstream (consult `fable-advisor`).

@@ -58,7 +58,10 @@ commit; leave the tree uncommitted for the caller." Always close
 with: "Your final message may contain only completed actions with
 their captured output — a final message that narrates intended next
 steps ('running X, then committing') is a task failure. If a
-command is denied or fails, paste the exact error instead."]
+command is denied or fails, paste the exact error instead. If you
+observe commits you did not make, or HEAD/branch movement you did
+not cause, mid-run: STOP and report it in your final message —
+never git reset, revert, or checkout over it."]
 SPEC_EOF
 ```
 
@@ -67,7 +70,10 @@ Record the baseline before launching, so acceptance can tell this lane's commits
 ```bash
 BASELINE=$(git rev-parse HEAD)
 git status --porcelain   # pre-existing uncommitted paths, if any — record them now
+BRANCH=$(git branch --show-current)   # the lane's stability anchor, checked before any mutating settle action
 ```
+
+An empty `BRANCH` means HEAD is detached — stop and report before launching anything, whoever owns the commit: the lane contract's "commit on the current branch" has no target, and a nameless anchor can't distinguish one detached state from another at re-check. With detached starts excluded, the name comparison catches any branch switch still in effect at re-check; an out-and-back switch that restores the name is invisible to it — that case belongs to the reflog check in step 5.
 
 If the tree is already dirty at launch, note which paths: a backstop commit stages only the task's files, and pre-existing dirt gets reported in `GAPS`, never absorbed into the lane's commit.
 
@@ -99,7 +105,7 @@ Never write your report while codex is still running. After `EXITED` — or once
 
 Paste reap's output line into the report's `PROCESS:` field — it is the report's evidence that the lane's process group did not survive your turn (group-level evidence: a descendant that detached into its own session escapes any group check, which is why the caller treats the tree, not this line, as the final authority). If it prints a `WARNING: group still alive` line instead of `(group dead)`, re-run reap once or twice; if the warning persists, paste the warning line into `PROCESS:` and report `STATUS: partial` — never report a clean completion while anything may survive.
 
-If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed in the diff. If codex instead dies within the first minute leaving no diff (`git status` clean, `FINAL` empty or a couple of lines of narration), reap and relaunch once with the identical spec, noting the retry in the report — and if fast mode was on for the failed launch, the relaunch DROPS `LANE_CODEX_FAST` (fast mode needs ChatGPT sign-in and model support, and either gap surfaces as exactly this early death; the work must not die for a speed nicety). A second early death is `STATUS: unavailable`, with `FINAL`'s tail pasted into `REASON` so the caller can tell an outage from a CLI that runs but does nothing.
+If `LOG` shows the watchdog fired, report `STATUS: timeout` with whatever landed in the diff. If codex instead dies within the first minute leaving no diff (`git status` clean, `FINAL` empty or a couple of lines of narration), first glance at `git reflog --date=iso` — a post-launch reset or checkout this lane didn't perform means the no-op shape is foreign interference, stop-and-report, not a relaunch — otherwise reap and relaunch once with the identical spec, noting the retry in the report — and if fast mode was on for the failed launch, the relaunch DROPS `LANE_CODEX_FAST` (fast mode needs ChatGPT sign-in and model support, and either gap surfaces as exactly this early death; the work must not die for a speed nicety). A second early death is `STATUS: unavailable`, with `FINAL`'s tail pasted into `REASON` so the caller can tell an outage from a CLI that runs but does nothing.
 
 What the supervisor enforces for this lane (non-negotiable):
 
@@ -112,9 +118,9 @@ What the supervisor enforces for this lane (non-negotiable):
 | Detached launch + watchdog | Survives the harness's 10-minute foreground cap; the wall clock holds even if this agent dies. |
 | `-c service_tier=fast -c features.fast_mode=true` (only under `LANE_CODEX_FAST=1`) | Opt-in fast tier when the spec says `FAST MODE: on`; never applied by default. |
 
-4. **Verify from evidence; re-run only when needed.** Read the diff (`git diff` / `git status`) and codex's final message from `FINAL`. Then check `LOG` — the machine-captured CLI transcript, not the model's summary — for the spec's verification command actually executing and passing as the run's final act, with no file edits after it. If that evidence is present, cite the log excerpt in your report and skip the re-run — running it again proves nothing new and wastes the suite's wall clock. If it is missing, ambiguous, or followed by further edits — including a final message that narrates verification or committing as an upcoming step, which is claim-only BY RULE — run the verification command yourself. Codex's *message* claiming success is never evidence — captured execution or your own re-run is. Say in the report which one you have.
+4. **Verify from evidence; re-run only when needed.** Run the stability-anchor check from step 5 first — verification against a checkout another writer has moved or rewound is void, and a mismatch is the same stop-and-report condition. Read the diff (`git diff` / `git status`) and codex's final message from `FINAL`. Then check `LOG` — the machine-captured CLI transcript, not the model's summary — for the spec's verification command actually executing and passing as the run's final act, with no file edits after it. If that evidence is present, cite the log excerpt in your report and skip the re-run — running it again proves nothing new and wastes the suite's wall clock. If it is missing, ambiguous, or followed by further edits — including a final message that narrates verification or committing as an upcoming step, which is claim-only BY RULE — run the verification command yourself. Codex's *message* claiming success is never evidence — captured execution or your own re-run is. Say in the report which one you have.
 
-5. **Settle the commit.** Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if codex committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
+5. **Settle the commit.** First re-verify the stability anchor: the current branch is still `$BRANCH`; `$BASELINE` is still an ancestor of HEAD (`git merge-base --is-ancestor $BASELINE HEAD` — a foreign rewind makes `git log $BASELINE..HEAD` deceptively EMPTY, so an empty range is not a pass by itself); and everything in that range is this task's work. On any mismatch — wrong branch, a rewound HEAD, or commits you didn't make — STOP: no commit, no reset, no checkout; report `STATUS: partial` with the observed state and let the caller arbitrate. One rewind evades the anchor: a foreign `reset --hard` landing exactly on `$BASELINE` leaves all three anchor conditions passing, so the detector there is discrepancy, not the anchor — if codex's captured output claims commits or edits that the range and tree don't show, or the range and tree are unexpectedly empty after a run that plainly did work, check `git reflog --date=iso` for reset or checkout entries dated after your launch that this lane didn't perform; a foreign entry is the same stop-and-report condition. Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if codex committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Never `git reset`, `revert`, or `checkout` over commits this lane didn't make — destructive self-correction against another writer is how a shared checkout gets its branch pointers corrupted (field-observed: a lane's `reset --hard` after the checkout had moved to a different branch silently rewrote an unrelated branch's history). Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
 
 ## What you return
 
@@ -136,5 +142,6 @@ GAPS: [spec ambiguities, unfinished items, or "none"]
 - One codex invocation per task unless the caller explicitly decomposed it — the single exception is the one relaunch after an early no-diff death (step 3), noted in the report.
 - Never end your turn while a codex process you started is alive. The report's `PROCESS:` field carries the evidence.
 - Never claim completion without execution evidence — the machine-captured log showing verification passing as the run's final act, or your own re-run. "Codex said it works" is forbidden as evidence; a passing run in the captured log is fine, and re-running on top of it just burns the suite twice.
+- Never destructively self-correct shared git state. Foreign commits or HEAD/branch movement you didn't cause are a stop-and-report condition, at every stage of the run.
 - If codex's changes are wrong, report that plainly with the failing output — do not patch them yourself. Fix decisions belong to the caller.
 - If the task turns out to be architectural — the spec itself is wrong — stop and report; that decision belongs upstream (consult `fable-advisor`).
