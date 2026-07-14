@@ -2,6 +2,15 @@
 
 **fable-orchestrator**, originally derived from [DannyMac180/fable-advisor](https://github.com/DannyMac180/fable-advisor) at its 3.1.0 and independently maintained since 2026-07-10 (detached from the fork network). Plugin updates are version-gated — every change ships with a version bump. Entries 3.1.1–3.5.0 below predate the rename, when this project was the fable-advisor fork; 3.5.0 was never published under that name.
 
+## 1.14.0 — 2026-07-14
+
+Root-caused from a field addendum to the same orchestration session that produced the 1.13.0 report: a second writer wrapper was dispatched for work already sent to a SendMessage-resumed wrapper; concurrent lanes in one shared checkout each destructively reset the other's commits (`git reset`, then `git reset --hard`); the final `reset --hard` landed after the orchestrator had switched branches in the shared tree and silently moved an unrelated branch's pointer onto the wrong history while a third lane ran on it. No content was lost, but branch history required manual forensic recovery.
+
+- **Wrappers stop-and-report on foreign git state; settle is gated on a stability anchor.** Both `grok-implementer.md` and `codex-implementer.md` capture `BRANCH=$(git branch --show-current)` at baseline alongside `BASELINE`, re-verify branch and `git log $BASELINE..HEAD` before any commit/reset/checkout at settle, and treat wrong-branch or foreign commits as `STATUS: partial` with no mutating self-correction. A Rules bullet bans destructive self-correction of shared git state at every stage of the run.
+- **Spec template puts the stop-and-report rule in front of the CLI.** The heredoc closing instructions now tell the producer: if it observes commits it did not make, or HEAD/branch movement it did not cause, mid-run — stop and report it; never `git reset`, `revert`, or `checkout` over it.
+- **Orchestration doctrine: exclusive checkout ownership and live-writer rules.** A shared checkout is owned by exactly one live lane from dispatch to settled report — no second writer, no branch switching under a live lane. A SendMessage-resumed wrapper is a LIVE WRITER even when its previous report looked final; settle or explicitly abandon (process death AND tree re-check) before dispatching another writer for that work. Post-settlement `git log` / `git status` re-check is required on EVERY settlement of a git-mutating lane, clean reports included — `reap: group dead` is necessary but insufficient.
+- **Transcript-degradation warning tightened with a field datapoint.** The SendMessage-reuse bound now cites degradation observed as early as ~144k tokens (dropped spec items a fresh wrapper then executed first try), replacing the looser "past a couple hundred thousand tokens" framing.
+
 ## 1.13.0 — 2026-07-13
 
 Root-caused from a field report (an orchestration session, 2026-07-13): a lane wrapper sat unsupervised for ~10 minutes after its wait loop lost the wakeup that should have reaped the detached CLI.

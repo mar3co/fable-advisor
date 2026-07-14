@@ -58,7 +58,10 @@ commit; leave the tree uncommitted for the caller." Always close
 with: "Your final message may contain only completed actions with
 their captured output — a final message that narrates intended next
 steps ('running X, then committing') is a task failure. If a
-command is denied or fails, paste the exact error instead."]
+command is denied or fails, paste the exact error instead. If you
+observe commits you did not make, or HEAD/branch movement you did
+not cause, mid-run: STOP and report it in your final message —
+never git reset, revert, or checkout over it."]
 SPEC_EOF
 ```
 
@@ -67,6 +70,7 @@ Record the baseline before launching, so acceptance can tell this lane's commits
 ```bash
 BASELINE=$(git rev-parse HEAD)
 git status --porcelain   # pre-existing uncommitted paths, if any — record them now
+BRANCH=$(git branch --show-current)   # the lane's stability anchor, checked before any mutating settle action
 ```
 
 If the tree is already dirty at launch, note which paths: a backstop commit stages only the task's files, and pre-existing dirt gets reported in `GAPS`, never absorbed into the lane's commit.
@@ -114,7 +118,7 @@ What the supervisor enforces for this lane (non-negotiable):
 
 4. **Verify from evidence; re-run only when needed.** Read the diff (`git diff` / `git status`) and codex's final message from `FINAL`. Then check `LOG` — the machine-captured CLI transcript, not the model's summary — for the spec's verification command actually executing and passing as the run's final act, with no file edits after it. If that evidence is present, cite the log excerpt in your report and skip the re-run — running it again proves nothing new and wastes the suite's wall clock. If it is missing, ambiguous, or followed by further edits — including a final message that narrates verification or committing as an upcoming step, which is claim-only BY RULE — run the verification command yourself. Codex's *message* claiming success is never evidence — captured execution or your own re-run is. Say in the report which one you have.
 
-5. **Settle the commit.** Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if codex committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
+5. **Settle the commit.** First re-verify the stability anchor: the current branch is still `$BRANCH` and everything in `git log $BASELINE..HEAD` is this task's work. On any mismatch — wrong branch, or commits you didn't make — STOP: no commit, no reset, no checkout; report `STATUS: partial` with the observed state and let the caller arbitrate. Check `git log $BASELINE..HEAD`. Under lane ownership (the default), a verified change must end committed: if codex committed, confirm the commit contains exactly the task's changes and report the hash; if the tree is verified but uncommitted, commit it yourself, scoped to the files the task changed, with a plain imperative subject. If the range contains commits that are not this task's, do not guess — report the range in `COMMIT:` and flag the foreign commits in `GAPS`. Never `git reset`, `revert`, or `checkout` over commits this lane didn't make — destructive self-correction against another writer is how a shared checkout gets its branch pointers corrupted (field-observed: a lane's `reset --hard` after the checkout had moved to a different branch silently rewrote an unrelated branch's history). Under `COMMIT: caller`, confirm the tree is uncommitted-but-verified and say so. Either way the report's `COMMIT:` field is never empty.
 
 ## What you return
 
@@ -136,5 +140,6 @@ GAPS: [spec ambiguities, unfinished items, or "none"]
 - One codex invocation per task unless the caller explicitly decomposed it — the single exception is the one relaunch after an early no-diff death (step 3), noted in the report.
 - Never end your turn while a codex process you started is alive. The report's `PROCESS:` field carries the evidence.
 - Never claim completion without execution evidence — the machine-captured log showing verification passing as the run's final act, or your own re-run. "Codex said it works" is forbidden as evidence; a passing run in the captured log is fine, and re-running on top of it just burns the suite twice.
+- Never destructively self-correct shared git state. Foreign commits or HEAD/branch movement you didn't cause are a stop-and-report condition, at every stage of the run.
 - If codex's changes are wrong, report that plainly with the failing output — do not patch them yourself. Fix decisions belong to the caller.
 - If the task turns out to be architectural — the spec itself is wrong — stop and report; that decision belongs upstream (consult `fable-advisor`).
