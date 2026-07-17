@@ -119,6 +119,17 @@ One more optional line opts the codex lanes into the Codex CLI's fast service ti
 
 Absent or `off` means off. When on, both codex lanes — implementer and reviewer, in every lane mode — launch with `service_tier=fast`. Know the trade before turning it on: fast is ~1.5x output speed for ~2–2.5x credit burn (it is never cheaper), and it requires ChatGPT sign-in — API-key auth can't use it. If the fast tier fails at run time, the lane retries once at standard tier and reports the downgrade loudly; doctor checks the fast tier live whenever the line is on. Grok lanes are unaffected.
 
+### A sample speed race
+
+One observed benchmark (July 2026), for flavor rather than proof — and a deliberate one-off exception to the "never race" rule above, which exists precisely because duplicate implementations are waste in real work: the same two fully spec-determined tasks — a token-bucket rate limiter and a TTL LRU cache, each with a unit-test suite — were dispatched simultaneously to all three lanes with identical six-part specs, each lane in its own isolated git repo. Time runs from dispatch to the lane's commit timestamp, so the CLI lanes' numbers include their wrapper's preflight and settlement — the latency you actually pay when delegating. Every run passed its full test suite under an independent re-run; no lane broke a spec constraint.
+
+| Task | Grok 4.5 | Claude Opus 4.8 (fallback lane) | GPT-5.6 Sol (fast tier) |
+|---|---|---|---|
+| Token-bucket rate limiter + tests | **61s** | 78s | 132s |
+| TTL LRU cache + tests | **82s** | 95s | 164s |
+
+Caveats that keep this honest: two runs of two small tasks is anecdote, not statistics. Both tasks were mechanical, spec-determined work — exactly what the grok default routes to grok — so codex's reasoning depth wasn't exercised; expect a different shape on concurrency or subtle-state work. The Opus lane ran as a plain subagent with no wrapper, so its number omits wrapper overhead the CLI lanes carry. And codex spent part of its extra wall clock on the most thorough self-review of the three, while Opus wrote the largest test suites — speed was the only score here, not quality, which was indistinguishable across lanes at this task size.
+
 ## Make it always-on
 
 (`/fable-orchestrator:setup` writes this for you — this section is the manual path.) Add one standing trigger line to your `CLAUDE.md` (user-level for every project, or per-project). It's gated on the session model, so sessions on other models (e.g. Opus) skip the flow. Pair it with your lane line from "Choose your implementation routing" above unless you want the grok default. Don't restate the doctrine itself in `CLAUDE.md`: it lives in the skill, and copies drift.
