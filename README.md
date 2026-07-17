@@ -119,11 +119,11 @@ One more optional line opts the codex lanes into the Codex CLI's fast service ti
 
 Absent or `off` means off. When on, both codex lanes — implementer and reviewer, in every lane mode — launch with `service_tier=fast`. Know the trade before turning it on: fast is ~1.5x output speed for ~2–2.5x credit burn (it is never cheaper), and it requires ChatGPT sign-in — API-key auth can't use it. If the fast tier fails at run time, the lane retries once at standard tier and reports the downgrade loudly; doctor checks the fast tier live whenever the line is on. Grok lanes are unaffected.
 
-### A sample speed race
+## Implementer Benchmarks
 
 One observed benchmark (July 2026), for flavor rather than proof — and a deliberate one-off exception to the "never race" rule above, which exists precisely because duplicate implementations are waste in real work: the same two fully spec-determined tasks — a token-bucket rate limiter and a TTL LRU cache, each with a unit-test suite — were dispatched simultaneously to all three lanes with identical six-part specs, each lane in its own isolated git repo. Time runs from dispatch to the lane's commit timestamp, so the CLI lanes' numbers include their wrapper's preflight and settlement — the latency you actually pay when delegating. Every run passed its full test suite under an independent re-run; no lane broke a spec constraint.
 
-| Task | Grok 4.5 | Claude Opus 4.8 (fallback lane) | GPT-5.6 Sol (fast tier) |
+| Task | 🥇 Grok 4.5 | 🥈 Claude Opus 4.8 (fallback lane) | 🥉 GPT-5.6 Sol (fast tier) |
 |---|---|---|---|
 | Token-bucket rate limiter + tests | **61s** | 78s | 132s |
 | TTL LRU cache + tests | **82s** | 95s | 164s |
