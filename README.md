@@ -123,10 +123,10 @@ Absent or `off` means off. When on, both codex lanes — implementer and reviewe
 
 One observed benchmark (July 2026), for flavor rather than proof — and a deliberate one-off exception to the "never race" rule above, which exists precisely because duplicate implementations are waste in real work: the same two fully spec-determined tasks — a token-bucket rate limiter and a TTL LRU cache, each with a unit-test suite — were dispatched simultaneously to all three lanes with identical six-part specs, each lane in its own isolated git repo. Time runs from dispatch to the lane's commit timestamp, so the CLI lanes' numbers include their wrapper's preflight and settlement — the latency you actually pay when delegating. Every run passed its full test suite under an independent re-run; no lane broke a spec constraint.
 
-| Task | 🥇 Grok 4.5 | 🥈 Claude Opus 4.8 (fallback lane) | 🥉 GPT-5.6 Sol (fast tier) |
-|---|---|---|---|
-| Token-bucket rate limiter + tests | **61s** | 78s | 132s |
-| TTL LRU cache + tests | **82s** | 95s | 164s |
+| Task | 🥇 Grok 4.5 | 🥈 Claude Opus 4.8 (fallback lane) | 🥉 GPT-5.6 Sol (fast tier) | GPT-5.6 Sol (standard tier) |
+|---|---|---|---|---|
+| Token-bucket rate limiter + tests | **61s** | 78s (1.3x slower than 1st) | 132s (2.2x slower than 1st) | 159s (2.6x slower than 1st) |
+| TTL LRU cache + tests | **82s** | 95s (1.2x slower than 1st) | 164s (2.0x slower than 1st) | 200s (2.4x slower than 1st) |
 
 Caveats that keep this honest: two runs of two small tasks is anecdote, not statistics. Both tasks were mechanical, spec-determined work — exactly what the grok default routes to grok — so codex's reasoning depth wasn't exercised; expect a different shape on concurrency or subtle-state work. The Opus lane ran as a plain subagent with no wrapper, so its number omits wrapper overhead the CLI lanes carry. And codex spent part of its extra wall clock on the most thorough self-review of the three, while Opus wrote the largest test suites — speed was the only score here, not quality, which was indistinguishable across lanes at this task size.
 
